@@ -22,16 +22,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from 'date-fns'; // For date formatting
+import { useRouter } from "next/navigation"; // Import useRouter
 
 interface AdminRecipeTableProps {
   recipes: Recipe[]; // Expecting recipes with at least id, name, category, visibility, createdAt, updatedAt
 }
 
 export default function AdminRecipeTable({ recipes }: AdminRecipeTableProps) {
+  const router = useRouter(); // Initialize router
+
   // Placeholder functions for actions - to be implemented later
   const handleEdit = (recipeId: string) => {
-    console.log("Edit recipe:", recipeId);
-    // router.push(`/admin/recipes/edit/${recipeId}`);
+    router.push(`/admin/recipes/edit/${recipeId}`);
   };
 
   const handleDelete = (recipeId: string) => {

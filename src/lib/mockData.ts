@@ -12,11 +12,8 @@ const generateId = (prefix: string = ''): string => {
   return prefix ? `${prefix}-${uuid}` : uuid;
 }
 
-const mockUsers: User[] = [
-  { id: "a1b2c3d4-e5f6-7890-1234-567890abcdef", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: false },
-  { id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0", email: "admin@swargfood.com", name: "Admin Alice", avatarUrl: "https://placehold.co/100x100.png", aiHint: "woman portrait", is_admin: true },
-  { id: "c3d4e5f6-a7b8-9012-3456-7890abcdef01", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: true },
-];
+// mockUsers is no longer exported as per previous fix
+// const mockUsers: User[] = [ ... ];
 
 export const getUserByEmail = async (email: string): Promise<User | null> => {
   const [rows] = await pool.query<RowDataPacket[]>('SELECT id, email, name, avatar_url, ai_hint, is_admin FROM users WHERE email = ?', [email]);
@@ -62,10 +59,12 @@ export const getRecipes = async (): Promise<Recipe[]> => {
     SELECT * FROM recipes WHERE visibility = TRUE ORDER BY created_at DESC
   `);
   
+  // For listing on the main page, we might not need full ingredients/steps details yet
+  // But for consistency or future use, we can map them as empty or fetch summaries
   return recipeRows.map(row => ({
       ...mapDbRowToRecipe(row),
-      ingredients: [], 
-      steps: [],       
+      ingredients: [], // Placeholder, or fetch simplified version if needed
+      steps: [],       // Placeholder
   }));
 };
 
@@ -73,6 +72,7 @@ export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
    const [recipeRows] = await pool.query<RowDataPacket[]>(`
     SELECT id, name, category, visibility, created_at, updated_at FROM recipes ORDER BY created_at DESC
   `);
+  // This is for the admin table, so full details aren't needed here, just what the table displays.
   return recipeRows.map(row => ({
       id: row.id,
       name: row.name,
@@ -80,6 +80,7 @@ export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
       visibility: !!row.visibility,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      // These are not strictly needed for the table view but are part of Recipe type
       ingredients: [], 
       steps: [],       
   }));
@@ -130,12 +131,12 @@ export const getRecipeById = async (id: string): Promise<Recipe | undefined> => 
   };
 };
 
-type RecipeDataForCreation = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ingredients' | 'steps'> & {
+type RecipeDataForPersistence = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ingredients' | 'steps'> & {
   ingredients: Omit<Ingredient, 'id'>[];
   steps: (Omit<RecipeStep, 'id' | 'ingredientIds'> & { selectedIngredientIndexes?: number[] })[];
 };
 
-export const addRecipe = async (recipeData: RecipeDataForCreation): Promise<Recipe> => {
+export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<Recipe> => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -175,7 +176,7 @@ export const addRecipe = async (recipeData: RecipeDataForCreation): Promise<Reci
         unit: ing.unit,
         image_url: ing.imageUrl,
         ai_hint: ing.aiHint,
-        item_order: index,
+        item_order: index, // Save the order
       });
     }
 
@@ -194,7 +195,7 @@ export const addRecipe = async (recipeData: RecipeDataForCreation): Promise<Reci
 
       if (step.selectedIngredientIndexes && step.selectedIngredientIndexes.length > 0) {
         for (const ingIndex of step.selectedIngredientIndexes) {
-          if (createdIngredientIds[ingIndex]) {
+          if (createdIngredientIds[ingIndex]) { // Ensure index is valid
             await connection.query('INSERT INTO recipe_step_ingredients SET ?', {
               recipe_step_id: stepId,
               ingredient_id: createdIngredientIds[ingIndex],
@@ -219,83 +220,90 @@ export const addRecipe = async (recipeData: RecipeDataForCreation): Promise<Reci
   }
 };
 
-export const updateRecipe = async (recipeId: string, updatedData: Partial<RecipeDataForCreation>): Promise<Recipe | null> => {
-  console.warn("updateRecipe is not fully implemented for database yet, especially for step-ingredient links.");
+export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForPersistence): Promise<Recipe | null> => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    const recipePayload: { [key: string]: any } = {};
-    if (updatedData.name !== undefined) recipePayload.name = updatedData.name;
-    if (updatedData.category !== undefined) recipePayload.category = updatedData.category;
-    // ... (map other recipe fields)
-    recipePayload.updated_at = new Date();
+    // 1. Update the main recipe details
+    const recipeDbPayload = {
+      name: updatedData.name,
+      category: updatedData.category,
+      description: updatedData.description,
+      image_url: updatedData.imageUrl,
+      ai_hint: updatedData.aiHint,
+      visibility: updatedData.visibility,
+      prep_time: updatedData.prepTime,
+      cook_time: updatedData.cookTime,
+      total_time: updatedData.totalTime,
+      servings: updatedData.servings,
+      nutritional_calories: updatedData.nutritionalInfoPerServing?.calories,
+      nutritional_protein: updatedData.nutritionalInfoPerServing?.protein,
+      nutritional_fat: updatedData.nutritionalInfoPerServing?.fat,
+      nutritional_carbs: updatedData.nutritionalInfoPerServing?.carbs,
+      updated_at: new Date(),
+    };
+    await connection.query('UPDATE recipes SET ? WHERE id = ?', [recipeDbPayload, recipeId]);
 
-    if (Object.keys(recipePayload).length > 1) { //
-         await connection.query('UPDATE recipes SET ? WHERE id = ?', [recipePayload, recipeId]);
+    // 2. Delete old ingredients (cascade delete should handle recipe_step_ingredients for these)
+    await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
+    // Note: recipe_step_ingredients linked to these ingredients will be auto-deleted by FK ON DELETE CASCADE
+    // if they were linked to steps that are NOT being re-added. If steps are also re-added, new links will be made.
+
+    // 3. Insert new ingredients and collect their new IDs
+    const newDbIngredientIds: string[] = [];
+    for (const [index, ingData] of updatedData.ingredients.entries()) {
+      const ingredientId = generateId("ing-upd");
+      newDbIngredientIds.push(ingredientId);
+      await connection.query('INSERT INTO ingredients SET ?', {
+        id: ingredientId,
+        recipe_id: recipeId,
+        name: ingData.name,
+        quantity: ingData.quantity,
+        unit: ingData.unit,
+        image_url: ingData.imageUrl,
+        ai_hint: ingData.aiHint,
+        item_order: index,
+      });
     }
+    
+    // 4. Delete old steps (this will also delete their links from recipe_step_ingredients due to ON DELETE CASCADE)
+    await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
+    
+    // 5. Insert new steps and their ingredient links
+    for (const stepData of updatedData.steps) {
+      const stepId = generateId("step-upd");
+      await connection.query('INSERT INTO recipe_steps SET ?', {
+        id: stepId,
+        recipe_id: recipeId,
+        step_number: stepData.stepNumber,
+        instruction: stepData.instruction,
+        image_url: stepData.imageUrl,
+        ai_hint: stepData.aiHint,
+        timer_in_seconds: stepData.timerInSeconds,
+        temperature: stepData.temperature,
+      });
 
-    const newIngredientIds: string[] = [];
-    if (updatedData.ingredients) {
-        await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
-        for (const [index, ing] of updatedData.ingredients.entries()) {
-            const ingredientId = generateId("ing-update");
-            newIngredientIds.push(ingredientId);
-            await connection.query('INSERT INTO ingredients SET ?', {
-                id: ingredientId,
-                recipe_id: recipeId,
-                name: ing.name,
-                quantity: ing.quantity,
-                unit: ing.unit,
-                image_url: ing.imageUrl,
-                ai_hint: ing.aiHint,
-                item_order: index,
+      if (stepData.selectedIngredientIndexes && stepData.selectedIngredientIndexes.length > 0) {
+        for (const ingIndex of stepData.selectedIngredientIndexes) {
+          if (newDbIngredientIds[ingIndex]) { // Use the new ingredient IDs
+            await connection.query('INSERT INTO recipe_step_ingredients SET ?', {
+              recipe_step_id: stepId,
+              ingredient_id: newDbIngredientIds[ingIndex],
             });
+          }
         }
-    } else {
-      // If not updating ingredients, fetch existing ones to map selectedIngredientIndexes for steps
-      const [existingIngredientRows] = await pool.query<RowDataPacket[]>('SELECT id FROM ingredients WHERE recipe_id = ? ORDER BY item_order ASC', [recipeId]);
-      existingIngredientRows.forEach(row => newIngredientIds.push(row.id));
-    }
-
-
-    if (updatedData.steps) {
-        await connection.query('DELETE FROM recipe_step_ingredients WHERE recipe_step_id IN (SELECT id FROM recipe_steps WHERE recipe_id = ?)', [recipeId]);
-        await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
-        for (const step of updatedData.steps) {
-            const stepId = generateId("step-update");
-            await connection.query('INSERT INTO recipe_steps SET ?', {
-                id: stepId,
-                recipe_id: recipeId,
-                step_number: step.stepNumber,
-                instruction: step.instruction,
-                image_url: step.imageUrl,
-                ai_hint: step.aiHint,
-                timer_in_seconds: step.timerInSeconds,
-                temperature: step.temperature,
-            });
-
-            if (step.selectedIngredientIndexes && step.selectedIngredientIndexes.length > 0) {
-              for (const ingIndex of step.selectedIngredientIndexes) {
-                  if (newIngredientIds[ingIndex]) { // Use the potentially new IDs
-                      await connection.query('INSERT INTO recipe_step_ingredients SET ?', {
-                          recipe_step_id: stepId,
-                          ingredient_id: newIngredientIds[ingIndex],
-                      });
-                  }
-              }
-            }
-        }
+      }
     }
     
     await connection.commit();
-    const freshRecipe = await getRecipeById(recipeId);
+    const freshRecipe = await getRecipeById(recipeId); // Fetch the fully updated recipe
     return freshRecipe || null;
 
   } catch (error) {
       await connection.rollback();
       console.error(`Error updating recipe ${recipeId}:`, error);
-      return null;
+      return null; // Or throw error
   } finally {
       connection.release();
   }
@@ -307,6 +315,7 @@ export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
   try {
     await connection.beginTransaction();
     // Foreign key constraints with ON DELETE CASCADE should handle related tables
+    // (ingredients, recipe_steps, and then recipe_step_ingredients)
     const [result] = await connection.query<OkPacket>('DELETE FROM recipes WHERE id = ?', [recipeId]);
     await connection.commit();
     return result.affectedRows > 0;
@@ -322,7 +331,7 @@ export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
 export const toggleRecipeVisibility = async (recipeId: string, visibility: boolean): Promise<Recipe | null> => {
   const [result] = await pool.query<OkPacket>('UPDATE recipes SET visibility = ?, updated_at = NOW() WHERE id = ?', [visibility, recipeId]);
   if (result.affectedRows > 0) {
-    const updatedRecipe = await getRecipeById(recipeId);
+    const updatedRecipe = await getRecipeById(recipeId); // Fetch full recipe to reflect change
     return updatedRecipe || null;
   }
   return null;

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { RecipeFormData } from '@/lib/schemas/recipeSchemas';
@@ -13,39 +13,56 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, PlusCircle, Loader2, Link2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createRecipeAction } from '@/lib/actions/recipeActions';
+import { createRecipeAction, updateRecipeAction } from '@/lib/actions/recipeActions';
 import { Separator } from '../ui/separator';
+import { useRouter } from 'next/navigation';
+
 
 interface RecipeFormProps {
-  initialData?: RecipeFormData; // For editing later
-  onFormSubmit?: () => void; // Callback after submission
+  initialData?: RecipeFormData;
+  recipeId?: string; // Added recipeId for updates
+  onFormSubmit?: () => void;
 }
 
-export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProps) {
+const defaultFormValues: RecipeFormData = {
+  name: '',
+  category: '',
+  description: '',
+  imageUrl: '',
+  aiHint: '',
+  visibility: true,
+  prepTime: '',
+  cookTime: '',
+  totalTime: '',
+  servings: undefined,
+  nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
+  ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
+  steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] }],
+};
+
+export default function RecipeForm({ initialData, recipeId, onFormSubmit }: RecipeFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
+  const isEditMode = !!initialData && !!recipeId;
 
   const form = useForm<RecipeFormData>({
     resolver: zodResolver(RecipeFormSchema),
-    defaultValues: initialData || {
-      name: '',
-      category: '',
-      description: '',
-      imageUrl: '',
-      aiHint: '',
-      visibility: true,
-      prepTime: '',
-      cookTime: '',
-      totalTime: '',
-      servings: undefined,
-      nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
-      ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
-      steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] }],
-    },
+    defaultValues: initialData || defaultFormValues,
   });
+
+  // Reset form if initialData changes (e.g., navigating from add to edit)
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset(defaultFormValues);
+    }
+  }, [initialData, form]);
+
 
   const { fields: ingredientFields, append: appendIngredient, remove: removeIngredient } = useFieldArray({
     control: form.control,
@@ -62,32 +79,31 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
   const onSubmit = async (data: RecipeFormData) => {
     setIsSubmitting(true);
     try {
-      const result = await createRecipeAction(data);
+      let result;
+      if (isEditMode && recipeId) {
+        result = await updateRecipeAction(recipeId, data);
+      } else {
+        result = await createRecipeAction(data);
+      }
+
       if (result.success) {
         toast({
-          title: "Recipe Created!",
-          description: `Recipe "${data.name}" has been successfully added.`,
+          title: `Recipe ${isEditMode ? 'Updated' : 'Created'}!`,
+          description: `Recipe "${data.name}" has been successfully ${isEditMode ? 'updated' : 'added'}.`,
         });
-        form.reset({ // Reset form to default values, ensuring arrays are reset correctly
-            name: '',
-            category: '',
-            description: '',
-            imageUrl: '',
-            aiHint: '',
-            visibility: true,
-            prepTime: '',
-            cookTime: '',
-            totalTime: '',
-            servings: undefined,
-            nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
-            ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
-            steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] }],
-        });
-        if (onFormSubmit) onFormSubmit();
+        if (!isEditMode) {
+          form.reset(defaultFormValues);
+        }
+        if (onFormSubmit) {
+          onFormSubmit();
+        }
+        // Optionally, redirect after successful update/create
+        router.push('/admin/recipes'); 
+        router.refresh(); // To ensure the table data is up-to-date
       } else {
         toast({
           title: "Error",
-          description: result.message || "Failed to create recipe.",
+          description: result.message || `Failed to ${isEditMode ? 'update' : 'create'} recipe.`,
           variant: "destructive",
         });
       }
@@ -107,8 +123,10 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Core Recipe Details</CardTitle>
-            <CardDescription>Basic information about the recipe.</CardDescription>
+            <CardTitle>{isEditMode ? 'Edit Recipe' : 'Add New Recipe'}</CardTitle>
+            <CardDescription>
+              {isEditMode ? `Editing recipe: ${initialData?.name}` : 'Fill in the details for the new recipe.'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -314,7 +332,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
                   <div className="space-y-2 p-3 border rounded-md bg-muted/50 max-h-48 overflow-y-auto">
                     {watchedIngredients.length > 0 ? watchedIngredients.map((ing, ingIndex) => (
                       <FormField
-                        key={`${field.id}-ing-${ingIndex}`} // Use a key that's unique to the step and ingredient
+                        key={`${field.id}-ing-${ingIndex}`} 
                         control={form.control}
                         name={`steps.${stepIndex}.selectedIngredientIndexes`}
                         render={({ field: f }) => (
@@ -360,7 +378,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
         <Separator />
 
         <Button type="submit" disabled={isSubmitting} size="lg" className="w-full md:w-auto">
-          {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (initialData ? 'Update Recipe' : 'Create Recipe')}
+          {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isEditMode ? 'Update Recipe' : 'Create Recipe')}
         </Button>
       </form>
     </Form>
