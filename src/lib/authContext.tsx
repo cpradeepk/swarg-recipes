@@ -42,7 +42,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       // Handle user not found, perhaps with a toast notification
       // For now, just don't log in
-      console.error("User not found");
       setCurrentUser(null);
       localStorage.removeItem("swargfood-user");
     }
