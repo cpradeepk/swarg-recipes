@@ -1,20 +1,18 @@
+
 import { getRecipeById } from "@/lib/mockData";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+// import { Button } from "@/components/ui/button"; // No longer directly used for navigation here
+// import Link from "next/link"; // No longer directly used for navigation here
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Users, Thermometer, ListOrdered, Utensils, ChefHat } from "lucide-react";
+import { Clock, Users, Utensils, ChefHat } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import RecipeStartCookingForm from "@/components/cooking/RecipeStartCookingForm"; // New component
 
 type RecipeDetailPageProps = {
   params: { recipeId: string };
 };
-
-// This component will be client-side to handle serving scaling and language selection
-// For now, parts are server-rendered, dynamic parts will be client components
-// import RecipeDetailClient from "./RecipeDetailClient";
 
 export default async function RecipeDetailPage({ params }: RecipeDetailPageProps) {
   const recipe = await getRecipeById(params.recipeId);
@@ -53,34 +51,33 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
             <div className="p-3 bg-muted rounded-lg">
               <Clock className="mx-auto h-7 w-7 text-primary mb-1.5" />
               <p className="text-xs text-muted-foreground">Prep Time</p>
-              <p className="font-semibold">{recipe.prepTime}</p>
+              <p className="font-semibold">{recipe.prepTime || "N/A"}</p>
             </div>
             <div className="p-3 bg-muted rounded-lg">
               <ChefHat className="mx-auto h-7 w-7 text-primary mb-1.5" />
               <p className="text-xs text-muted-foreground">Cook Time</p>
-              <p className="font-semibold">{recipe.cookTime}</p>
+              <p className="font-semibold">{recipe.cookTime || "N/A"}</p>
             </div>
             <div className="p-3 bg-muted rounded-lg">
               <Clock className="mx-auto h-7 w-7 text-primary mb-1.5" />
               <p className="text-xs text-muted-foreground">Total Time</p>
-              <p className="font-semibold">{recipe.totalTime}</p>
+              <p className="font-semibold">{recipe.totalTime || "N/A"}</p>
             </div>
             <div className="p-3 bg-muted rounded-lg">
               <Users className="mx-auto h-7 w-7 text-primary mb-1.5" />
               <p className="text-xs text-muted-foreground">Servings</p>
-              <p className="font-semibold">{recipe.servings}</p>
+              <p className="font-semibold">{recipe.servings || "N/A"}</p>
             </div>
           </div>
 
           <Separator />
           
-          {/* Placeholder for Serving Scaler and Nutritional Info - to be client component */}
           <div className="bg-secondary/30 p-4 rounded-lg">
             <h3 className="text-xl font-semibold text-primary mb-3 flex items-center gap-2">
               <Utensils size={22}/> Ingredients & Nutrition
             </h3>
-            <p className="text-muted-foreground text-sm">Serving scaler and dynamic nutritional information coming soon!</p>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <p className="text-muted-foreground text-sm mb-3">Serving scaler and dynamic nutritional information coming soon!</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-medium mb-2">Ingredients:</h4>
                 <ul className="list-disc list-inside space-y-1 text-sm">
@@ -104,16 +101,8 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
           
           <Separator />
 
-          {/* Placeholder for Language Selector */}
-           <div className="bg-secondary/30 p-4 rounded-lg">
-            <h3 className="text-xl font-semibold text-primary mb-3">Cooking Preferences</h3>
-            <p className="text-muted-foreground text-sm">Language selection for voice instructions will be available here.</p>
-          </div>
-
-
-          <Button asChild size="lg" className="w-full md:w-auto text-lg py-6">
-            <Link href={`/recipes/${recipe.id}/cook`}>Start Cooking</Link>
-          </Button>
+          {/* Form to capture user name and language preference */}
+          <RecipeStartCookingForm recipeId={recipe.id} />
 
         </CardContent>
       </Card>
