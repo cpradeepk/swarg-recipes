@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SwargFood Simplified',
+  title: 'Swarg Recipes',
   description: 'Delicious recipes, simplified cooking.',
 };
 

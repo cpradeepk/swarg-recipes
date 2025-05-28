@@ -52,8 +52,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <LogInIcon className="mx-auto h-12 w-12 text-primary mb-4" />
-          <CardTitle className="text-3xl font-bold text-primary">Login to SwargFood</CardTitle>
-          <CardDescription>Enter your email to access your recipes and features.</CardDescription>
+          <CardTitle className="text-3xl font-bold text-primary">Admin Login - Swarg Recipes</CardTitle>
+          <CardDescription>Enter your email to access the admin panel.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -74,15 +74,15 @@ export default function LoginPage() {
               {loading ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
-                "Log In / Sign Up"
+                "Log In"
               )}
             </Button>
           </form>
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don't have an account? Entering your email will create one or log you in.
-          </p>
-           <p className="mt-2 text-center text-xs text-muted-foreground">
+           <p className="mt-4 text-center text-xs text-muted-foreground">
             Admin access for emails ending with <span className="font-semibold text-primary">@swargfood.com</span>
+          </p>
+           <p className="mt-4 text-center text-sm text-muted-foreground">
+            General users access the site directly from the homepage.
           </p>
         </CardContent>
       </Card>

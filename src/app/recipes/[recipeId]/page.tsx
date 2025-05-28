@@ -1,14 +1,14 @@
 
 import { getRecipeById } from "@/lib/mockData";
 import Image from "next/image";
-// import { Button } from "@/components/ui/button"; // No longer directly used for navigation here
-// import Link from "next/link"; // No longer directly used for navigation here
+import Link from "next/link"; // Import Link
+import { Button } from "@/components/ui/button"; // Import Button
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Users, Utensils, ChefHat } from "lucide-react";
+import { Clock, Users, Utensils, ChefHat, PlayCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import RecipeStartCookingForm from "@/components/cooking/RecipeStartCookingForm"; // New component
+// RecipeStartCookingForm is no longer needed here
 
 type RecipeDetailPageProps = {
   params: { recipeId: string };
@@ -101,9 +101,15 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
           
           <Separator />
 
-          {/* Form to capture user name and language preference */}
-          <RecipeStartCookingForm recipeId={recipe.id} />
-
+          {/* Direct link to cooking page */}
+          <div className="text-center">
+            <Button asChild size="lg" className="text-lg py-6 px-10">
+              <Link href={`/recipes/${recipe.id}/cook`}>
+                <PlayCircle className="mr-2 h-6 w-6" />
+                Start Cooking
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

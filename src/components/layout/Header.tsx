@@ -32,7 +32,7 @@ export default function Header() {
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <UtensilsCrossed className="h-7 w-7 text-primary" />
-          <span className="font-bold text-xl text-primary">SwargFood Simplified</span>
+          <span className="font-bold text-xl text-primary">Swarg Recipes</span>
         </Link>
         <nav className="flex items-center gap-4">
           <Button variant="ghost" asChild>
