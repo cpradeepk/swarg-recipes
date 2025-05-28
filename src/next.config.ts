@@ -3,8 +3,17 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   basePath: '/recipes',
-  trailingSlash: true, // <--- ADD THIS LINE
+  trailingSlash: true,
   /* config options here */
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/recipes/',
+        permanent: true,
+      },
+    ]
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
