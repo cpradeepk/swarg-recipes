@@ -1,4 +1,5 @@
 
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -49,23 +50,36 @@ export interface Recipe {
 
 export interface User {
   id: string; // Will be VARCHAR(36) from DB
-  email: string;
-  name?: string;
+  email?: string | null; // Made email optional for name-based users
+  name: string; // Name is now mandatory
   avatarUrl?: string;
   aiHint?: string;
   is_admin?: boolean; // From DB
   // password_hash is intentionally omitted from client-side type
 }
 
+export interface RecipePreparationLogFeedback {
+  photoUrl?: string;
+  productWeight?: string;
+  numPreps?: number;
+  isWasted?: boolean;
+}
 export interface RecipePreparationLog {
   id: string;
   userId: string;
-  userName: string; // This might be denormalized or fetched via JOIN
+  userNameSnapshot?: string; // Denormalized user name at the time of logging
   recipeId: string;
-  recipeName: string; // This might be denormalized or fetched via JOIN
+  recipeName?: string; // This might be denormalized or fetched via JOIN
   startTime: Date;
   endTime?: Date;
-  duration?: string; // Consider storing as seconds (number) for easier calculation
+  duration?: string; // Formatted duration string
+  durationSeconds?: number; // Actual duration in seconds
   languageUsed?: string;
-  // DB uses duration_seconds (INT) and created_at
+  completedAllSteps?: boolean;
+  feedbackPhotoUrl?: string;
+  feedbackProductWeight?: string;
+  feedbackNumPreps?: number;
+  feedbackIsWasted?: boolean;
+  createdAt?: Date; // DB typically handles this
 }
+

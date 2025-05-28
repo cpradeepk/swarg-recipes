@@ -1,7 +1,7 @@
 
 'use server'; // Mark this module as server-only
 
-import type { Recipe, User, Ingredient, RecipeStep, NutritionalInfo } from "@/types";
+import type { Recipe, User, Ingredient, RecipeStep, NutritionalInfo, RecipePreparationLog } from "@/types";
 import pool from './db'; // Import the database pool
 import { RowDataPacket, OkPacket } from 'mysql2';
 
@@ -12,12 +12,9 @@ const generateId = (prefix: string = ''): string => {
   return prefix ? `${prefix}-${uuid}` : uuid;
 }
 
-// mockUsers is no longer exported as per previous fix
-
 export const getUserByEmail = async (email: string): Promise<User | null> => {
   const [rows] = await pool.query<RowDataPacket[]>('SELECT id, email, name, avatar_url, ai_hint, is_admin FROM users WHERE email = ?', [email]);
   if (rows.length === 0) {
-    // Try to create a user if they are an admin email but don't exist
     if (email.toLowerCase().endsWith('@swargfood.com')) {
         console.log(`Admin email ${email} not found, attempting to create user.`);
         try {
@@ -25,9 +22,9 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
             const newAdminUser: User = {
                 id: newAdminId,
                 email: email,
-                name: email.split('@')[0], // Default name
+                name: email.split('@')[0] || "Admin", 
                 is_admin: true,
-                avatarUrl: 'https://placehold.co/100x100.png', // Default avatar
+                avatarUrl: 'https://placehold.co/100x100.png', 
                 aiHint: 'admin user',
             };
             await pool.query('INSERT INTO users SET ?', {
@@ -37,7 +34,7 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
                 avatar_url: newAdminUser.avatarUrl,
                 ai_hint: newAdminUser.aiHint,
                 is_admin: newAdminUser.is_admin,
-                password_hash: 'temp_admin_password_placeholder', // IMPORTANT: Replace with secure handling
+                password_hash: 'temp_admin_password_placeholder', 
             });
             console.log(`Admin user ${email} created successfully with ID ${newAdminId}.`);
             return newAdminUser;
@@ -57,6 +54,48 @@ export const getUserByEmail = async (email: string): Promise<User | null> => {
     aiHint: dbUser.ai_hint,
     is_admin: !!dbUser.is_admin, 
   };
+};
+
+export const findOrCreateUserByName = async (name: string): Promise<User | null> => {
+  const [rows] = await pool.query<RowDataPacket[]>('SELECT id, email, name, avatar_url, ai_hint, is_admin FROM users WHERE name = ? AND is_admin = FALSE', [name]);
+  if (rows.length > 0) {
+    const dbUser = rows[0];
+    return {
+      id: dbUser.id,
+      email: dbUser.email, // Could be null
+      name: dbUser.name,
+      avatarUrl: dbUser.avatar_url,
+      aiHint: dbUser.ai_hint,
+      is_admin: !!dbUser.is_admin,
+    };
+  } else {
+    // User not found, create a new one
+    try {
+      const newUserId = generateId("user-gen");
+      const newUser: User = {
+        id: newUserId,
+        name: name,
+        email: null, // General users might not have emails in this system
+        is_admin: false,
+        avatarUrl: `https://placehold.co/100x100.png?text=${name.substring(0,1)}`, // Simple placeholder
+        aiHint: 'user cooking',
+      };
+      await pool.query('INSERT INTO users SET ?', {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        avatar_url: newUser.avatarUrl,
+        ai_hint: newUser.aiHint,
+        is_admin: newUser.is_admin,
+        password_hash: 'N/A_name_auth', // Not applicable for name-based auth
+      });
+      console.log(`General user ${name} created successfully with ID ${newUserId}.`);
+      return newUser;
+    } catch (creationError) {
+      console.error(`Failed to create general user ${name}:`, creationError);
+      return null;
+    }
+  }
 };
 
 
@@ -100,8 +139,6 @@ export const getRecipes = async (): Promise<Recipe[]> => {
       item_order: ingRow.item_order,
     }));
 
-    // For home page listing, full steps might not be needed, but fetching for consistency for now.
-    // This could be optimized later if performance becomes an issue.
     const [stepRows] = await pool.query<RowDataPacket[]>('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_number ASC', [recipeData.id]);
     const steps: RecipeStep[] = [];
       for (const stepRow of stepRows) {
@@ -245,7 +282,7 @@ export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<R
       await connection.query('INSERT INTO recipe_steps SET ?', {
         id: stepId,
         recipe_id: recipeId,
-        step_number: step.stepNumber, // Ensure stepNumber is passed
+        step_number: step.stepNumber, 
         instruction: step.instruction,
         image_url: step.imageUrl,
         ai_hint: step.aiHint,
@@ -304,6 +341,18 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
     };
     await connection.query('UPDATE recipes SET ? WHERE id = ?', [recipeDbPayload, recipeId]);
 
+    // Clear existing ingredients and steps and their links for simplicity
+    // ON DELETE CASCADE for recipe_step_ingredients (when recipe_steps are deleted)
+    // and for ingredients referenced by recipe_step_ingredients.
+    // Need to delete recipe_step_ingredients explicitly if not handled by cascade from ingredients.
+    // Safest: delete recipe_step_ingredients, then ingredients, then steps.
+    
+    // Fetch old step IDs to delete their specific links first
+    const [oldStepRows] = await connection.query<RowDataPacket[]>('SELECT id FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
+    for (const oldStep of oldStepRows) {
+        await connection.query('DELETE FROM recipe_step_ingredients WHERE recipe_step_id = ?', [oldStep.id]);
+    }
+    await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
     await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
     
     const newDbIngredientIds: string[] = [];
@@ -321,8 +370,6 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
         item_order: index,
       });
     }
-    
-    await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
     
     for (const stepData of updatedData.steps) {
       const stepId = generateId("step-upd");
@@ -401,4 +448,115 @@ export const toggleRecipeVisibility = async (recipeId: string, visibility: boole
   } finally {
     connection.release();
   }
+};
+
+
+// --- Recipe Preparation Log Functions ---
+
+type CreateLogPayload = {
+  userId: string;
+  userNameSnapshot: string;
+  recipeId: string;
+  recipeNameSnapshot: string;
+  startTime: Date;
+  languageUsed: string;
+};
+
+export const createRecipeLogEntry = async (payload: CreateLogPayload): Promise<string | null> => {
+  const logId = generateId("log");
+  const sql = 'INSERT INTO recipe_preparation_logs (id, user_id, user_name_snapshot, recipe_id, recipe_name, start_time, language_used, completed_all_steps, feedback_is_wasted) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, FALSE)';
+  try {
+    const [result] = await pool.query<OkPacket>(sql, [
+      logId,
+      payload.userId,
+      payload.userNameSnapshot,
+      payload.recipeId,
+      payload.recipeNameSnapshot, // Storing recipe name snapshot
+      payload.startTime,
+      payload.languageUsed,
+    ]);
+    return result.affectedRows > 0 ? logId : null;
+  } catch (error) {
+    console.error("Error creating recipe log entry:", error);
+    return null;
+  }
+};
+
+type UpdateLogPayload = {
+  endTime: Date;
+  durationSeconds: number;
+  completedAllSteps: boolean;
+  feedbackPhotoUrl?: string;
+  feedbackProductWeight?: string;
+  feedbackNumPreps?: number;
+  feedbackIsWasted?: boolean;
+};
+
+export const updateRecipeLogEntry = async (logId: string, payload: UpdateLogPayload): Promise<boolean> => {
+  const sql = `
+    UPDATE recipe_preparation_logs 
+    SET end_time = ?, duration_seconds = ?, completed_all_steps = ?, 
+        feedback_photo_url = ?, feedback_product_weight = ?, 
+        feedback_num_preps = ?, feedback_is_wasted = ?
+    WHERE id = ?
+  `;
+  try {
+    const [result] = await pool.query<OkPacket>(sql, [
+      payload.endTime,
+      payload.durationSeconds,
+      payload.completedAllSteps,
+      payload.feedbackPhotoUrl,
+      payload.feedbackProductWeight,
+      payload.feedbackNumPreps,
+      payload.feedbackIsWasted,
+      logId,
+    ]);
+    return result.affectedRows > 0;
+  } catch (error) {
+    console.error(`Error updating recipe log entry ${logId}:`, error);
+    return false;
+  }
+};
+
+export const getRecipePreparationLogsForAdmin = async (): Promise<RecipePreparationLog[]> => {
+  const [logRows] = await pool.query<RowDataPacket[]>(`
+    SELECT 
+      id, 
+      user_id, 
+      user_name_snapshot, -- Use the snapshot stored
+      recipe_id, 
+      recipe_name, -- Use the snapshot stored
+      start_time, 
+      end_time, 
+      duration_seconds, 
+      language_used, 
+      completed_all_steps,
+      feedback_photo_url,
+      feedback_product_weight,
+      feedback_num_preps,
+      feedback_is_wasted,
+      created_at
+    FROM recipe_preparation_logs 
+    ORDER BY start_time DESC
+  `);
+  
+  return logRows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    userNameSnapshot: row.user_name_snapshot,
+    recipeId: row.recipe_id,
+    recipeName: row.recipe_name,
+    startTime: new Date(row.start_time),
+    endTime: row.end_time ? new Date(row.end_time) : undefined,
+    durationSeconds: row.duration_seconds,
+    languageUsed: row.language_used,
+    completedAllSteps: !!row.completed_all_steps,
+    feedbackPhotoUrl: row.feedback_photo_url,
+    feedbackProductWeight: row.feedback_product_weight,
+    feedbackNumPreps: row.feedback_num_preps,
+    feedbackIsWasted: !!row.feedback_is_wasted,
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    // Formatted duration can be computed on client or here if needed
+    duration: row.duration_seconds ? `${Math.floor(row.duration_seconds / 60)}m ${row.duration_seconds % 60}s` : "In Progress",
+  }));
 };
