@@ -4,8 +4,14 @@
 import { z } from 'zod';
 import type { RecipeFormData } from '@/lib/schemas/recipeSchemas';
 import { RecipeFormSchema } from '@/lib/schemas/recipeSchemas';
-import { addRecipe as addRecipeToDb, updateRecipe as updateRecipeInDb } from '@/lib/mockData'; 
+import { 
+  addRecipe as addRecipeToDb, 
+  updateRecipe as updateRecipeInDb,
+  deleteRecipe as deleteRecipeFromDb,
+  toggleRecipeVisibility as toggleRecipeVisibilityInDb
+} from '@/lib/mockData'; 
 import type { Recipe, Ingredient, RecipeStep } from '@/types';
+import { revalidatePath } from 'next/cache';
 
 // Helper function to map form ingredient data to DB structure for saving
 const mapFormIngredients = (formDataIngredients: RecipeFormData['ingredients']): Omit<Ingredient, 'id'>[] => {
@@ -67,7 +73,8 @@ export async function createRecipeAction(
     };
     
     const createdRecipe = await addRecipeToDb(recipeToCreate as any); 
-
+    revalidatePath('/admin/recipes'); // Revalidate to show the new recipe in the table
+    revalidatePath('/'); // Revalidate home page in case it affects listings
     return { success: true, message: 'Recipe created successfully!', recipeId: createdRecipe.id };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -117,6 +124,10 @@ export async function updateRecipeAction(
     const updatedRecipe = await updateRecipeInDb(recipeId, recipeToUpdate as any);
 
     if (updatedRecipe) {
+      revalidatePath('/admin/recipes'); // Revalidate the admin recipes table
+      revalidatePath(`/admin/recipes/edit/${recipeId}`); // Revalidate the edit page itself
+      revalidatePath(`/recipes/${recipeId}`); // Revalidate the public recipe view
+      revalidatePath('/'); // Revalidate home page
       return { success: true, message: 'Recipe updated successfully!', recipeId: updatedRecipe.id };
     } else {
       return { success: false, message: 'Failed to update recipe. Recipe not found or an error occurred.' };
@@ -128,6 +139,42 @@ export async function updateRecipeAction(
     }
     console.error('Error updating recipe in action:', error);
     const errorMessage = (error instanceof Error && error.message) ? error.message : 'An unexpected error occurred while updating the recipe.';
+    return { success: false, message: errorMessage };
+  }
+}
+
+export async function deleteRecipeAction(recipeId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const success = await deleteRecipeFromDb(recipeId);
+    if (success) {
+      revalidatePath('/admin/recipes');
+      revalidatePath('/');
+      return { success: true, message: 'Recipe deleted successfully!' };
+    } else {
+      return { success: false, message: 'Failed to delete recipe. Recipe not found or an error occurred.' };
+    }
+  } catch (error) {
+    console.error('Error deleting recipe in action:', error);
+    const errorMessage = (error instanceof Error && error.message) ? error.message : 'An unexpected error occurred.';
+    return { success: false, message: errorMessage };
+  }
+}
+
+export async function toggleRecipeVisibilityAction(recipeId: string, currentVisibility: boolean): Promise<{ success: boolean; message: string, newVisibility?: boolean }> {
+  try {
+    const newVisibility = !currentVisibility;
+    const updatedRecipe = await toggleRecipeVisibilityInDb(recipeId, newVisibility);
+    if (updatedRecipe) {
+      revalidatePath('/admin/recipes');
+      revalidatePath(`/recipes/${recipeId}`);
+      revalidatePath('/');
+      return { success: true, message: `Recipe visibility set to ${newVisibility ? 'Visible' : 'Hidden'}.`, newVisibility };
+    } else {
+      return { success: false, message: 'Failed to update recipe visibility.' };
+    }
+  } catch (error) {
+    console.error('Error toggling recipe visibility in action:', error);
+    const errorMessage = (error instanceof Error && error.message) ? error.message : 'An unexpected error occurred.';
     return { success: false, message: errorMessage };
   }
 }

@@ -13,11 +13,39 @@ const generateId = (prefix: string = ''): string => {
 }
 
 // mockUsers is no longer exported as per previous fix
-// const mockUsers: User[] = [ ... ];
 
 export const getUserByEmail = async (email: string): Promise<User | null> => {
   const [rows] = await pool.query<RowDataPacket[]>('SELECT id, email, name, avatar_url, ai_hint, is_admin FROM users WHERE email = ?', [email]);
   if (rows.length === 0) {
+    // Try to create a user if they are an admin email but don't exist
+    if (email.toLowerCase().endsWith('@swargfood.com')) {
+        console.log(`Admin email ${email} not found, attempting to create user.`);
+        try {
+            const newAdminId = generateId("user-admin");
+            const newAdminUser: User = {
+                id: newAdminId,
+                email: email,
+                name: email.split('@')[0], // Default name
+                is_admin: true,
+                avatarUrl: 'https://placehold.co/100x100.png', // Default avatar
+                aiHint: 'admin user',
+            };
+            await pool.query('INSERT INTO users SET ?', {
+                id: newAdminUser.id,
+                email: newAdminUser.email,
+                name: newAdminUser.name,
+                avatar_url: newAdminUser.avatarUrl,
+                ai_hint: newAdminUser.aiHint,
+                is_admin: newAdminUser.is_admin,
+                password_hash: 'temp_admin_password_placeholder', // IMPORTANT: Replace with secure handling
+            });
+            console.log(`Admin user ${email} created successfully with ID ${newAdminId}.`);
+            return newAdminUser;
+        } catch (creationError) {
+            console.error(`Failed to create admin user ${email}:`, creationError);
+            return null;
+        }
+    }
     return null;
   }
   const dbUser = rows[0];
@@ -56,23 +84,56 @@ const mapDbRowToRecipe = (row: RowDataPacket): Omit<Recipe, 'ingredients' | 'ste
 
 export const getRecipes = async (): Promise<Recipe[]> => {
   const [recipeRows] = await pool.query<RowDataPacket[]>(`
-    SELECT * FROM recipes WHERE visibility = TRUE ORDER BY created_at DESC
+    SELECT * FROM recipes WHERE visibility = TRUE ORDER BY name ASC
   `);
   
-  // For listing on the main page, we might not need full ingredients/steps details yet
-  // But for consistency or future use, we can map them as empty or fetch summaries
-  return recipeRows.map(row => ({
-      ...mapDbRowToRecipe(row),
-      ingredients: [], // Placeholder, or fetch simplified version if needed
-      steps: [],       // Placeholder
+  return Promise.all(recipeRows.map(async (row) => {
+    const recipeData = mapDbRowToRecipe(row);
+    const [ingredientRows] = await pool.query<RowDataPacket[]>('SELECT * FROM ingredients WHERE recipe_id = ? ORDER BY item_order ASC', [recipeData.id]);
+    const ingredients: Ingredient[] = ingredientRows.map(ingRow => ({
+      id: ingRow.id,
+      name: ingRow.name,
+      quantity: ingRow.quantity,
+      unit: ingRow.unit,
+      imageUrl: ingRow.image_url,
+      aiHint: ingRow.ai_hint,
+      item_order: ingRow.item_order,
+    }));
+
+    // For home page listing, full steps might not be needed, but fetching for consistency for now.
+    // This could be optimized later if performance becomes an issue.
+    const [stepRows] = await pool.query<RowDataPacket[]>('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_number ASC', [recipeData.id]);
+    const steps: RecipeStep[] = [];
+      for (const stepRow of stepRows) {
+        const [stepIngredientRows] = await pool.query<RowDataPacket[]>(
+          'SELECT ingredient_id FROM recipe_step_ingredients WHERE recipe_step_id = ?',
+          [stepRow.id]
+        );
+        const ingredientIds = stepIngredientRows.map(sir => sir.ingredient_id);
+        steps.push({
+          id: stepRow.id,
+          stepNumber: stepRow.step_number,
+          instruction: stepRow.instruction,
+          imageUrl: stepRow.image_url,
+          aiHint: stepRow.ai_hint,
+          timerInSeconds: stepRow.timer_in_seconds,
+          temperature: stepRow.temperature,
+          ingredientIds: ingredientIds,
+        });
+      }
+
+    return {
+      ...recipeData,
+      ingredients,
+      steps,
+    };
   }));
 };
 
 export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
    const [recipeRows] = await pool.query<RowDataPacket[]>(`
-    SELECT id, name, category, visibility, created_at, updated_at FROM recipes ORDER BY created_at DESC
+    SELECT id, name, category, visibility, created_at, updated_at FROM recipes ORDER BY name ASC
   `);
-  // This is for the admin table, so full details aren't needed here, just what the table displays.
   return recipeRows.map(row => ({
       id: row.id,
       name: row.name,
@@ -80,7 +141,6 @@ export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
       visibility: !!row.visibility,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      // These are not strictly needed for the table view but are part of Recipe type
       ingredients: [], 
       steps: [],       
   }));
@@ -133,7 +193,7 @@ export const getRecipeById = async (id: string): Promise<Recipe | undefined> => 
 
 type RecipeDataForPersistence = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt' | 'ingredients' | 'steps'> & {
   ingredients: Omit<Ingredient, 'id'>[];
-  steps: (Omit<RecipeStep, 'id' | 'ingredientIds'> & { selectedIngredientIndexes?: number[] })[];
+  steps: (Omit<RecipeStep, 'id' | 'ingredientIds'> & { stepNumber: number, selectedIngredientIndexes?: number[] })[];
 };
 
 export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<Recipe> => {
@@ -176,7 +236,7 @@ export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<R
         unit: ing.unit,
         image_url: ing.imageUrl,
         ai_hint: ing.aiHint,
-        item_order: index, // Save the order
+        item_order: index, 
       });
     }
 
@@ -185,7 +245,7 @@ export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<R
       await connection.query('INSERT INTO recipe_steps SET ?', {
         id: stepId,
         recipe_id: recipeId,
-        step_number: step.stepNumber,
+        step_number: step.stepNumber, // Ensure stepNumber is passed
         instruction: step.instruction,
         image_url: step.imageUrl,
         ai_hint: step.aiHint,
@@ -195,7 +255,7 @@ export const addRecipe = async (recipeData: RecipeDataForPersistence): Promise<R
 
       if (step.selectedIngredientIndexes && step.selectedIngredientIndexes.length > 0) {
         for (const ingIndex of step.selectedIngredientIndexes) {
-          if (createdIngredientIds[ingIndex]) { // Ensure index is valid
+          if (createdIngredientIds[ingIndex]) { 
             await connection.query('INSERT INTO recipe_step_ingredients SET ?', {
               recipe_step_id: stepId,
               ingredient_id: createdIngredientIds[ingIndex],
@@ -225,7 +285,6 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
   try {
     await connection.beginTransaction();
 
-    // 1. Update the main recipe details
     const recipeDbPayload = {
       name: updatedData.name,
       category: updatedData.category,
@@ -245,12 +304,8 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
     };
     await connection.query('UPDATE recipes SET ? WHERE id = ?', [recipeDbPayload, recipeId]);
 
-    // 2. Delete old ingredients (cascade delete should handle recipe_step_ingredients for these)
     await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
-    // Note: recipe_step_ingredients linked to these ingredients will be auto-deleted by FK ON DELETE CASCADE
-    // if they were linked to steps that are NOT being re-added. If steps are also re-added, new links will be made.
-
-    // 3. Insert new ingredients and collect their new IDs
+    
     const newDbIngredientIds: string[] = [];
     for (const [index, ingData] of updatedData.ingredients.entries()) {
       const ingredientId = generateId("ing-upd");
@@ -267,10 +322,8 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
       });
     }
     
-    // 4. Delete old steps (this will also delete their links from recipe_step_ingredients due to ON DELETE CASCADE)
     await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
     
-    // 5. Insert new steps and their ingredient links
     for (const stepData of updatedData.steps) {
       const stepId = generateId("step-upd");
       await connection.query('INSERT INTO recipe_steps SET ?', {
@@ -286,7 +339,7 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
 
       if (stepData.selectedIngredientIndexes && stepData.selectedIngredientIndexes.length > 0) {
         for (const ingIndex of stepData.selectedIngredientIndexes) {
-          if (newDbIngredientIds[ingIndex]) { // Use the new ingredient IDs
+          if (newDbIngredientIds[ingIndex]) { 
             await connection.query('INSERT INTO recipe_step_ingredients SET ?', {
               recipe_step_id: stepId,
               ingredient_id: newDbIngredientIds[ingIndex],
@@ -297,13 +350,13 @@ export const updateRecipe = async (recipeId: string, updatedData: RecipeDataForP
     }
     
     await connection.commit();
-    const freshRecipe = await getRecipeById(recipeId); // Fetch the fully updated recipe
+    const freshRecipe = await getRecipeById(recipeId); 
     return freshRecipe || null;
 
   } catch (error) {
       await connection.rollback();
       console.error(`Error updating recipe ${recipeId}:`, error);
-      return null; // Or throw error
+      return null; 
   } finally {
       connection.release();
   }
@@ -315,7 +368,6 @@ export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
   try {
     await connection.beginTransaction();
     // Foreign key constraints with ON DELETE CASCADE should handle related tables
-    // (ingredients, recipe_steps, and then recipe_step_ingredients)
     const [result] = await connection.query<OkPacket>('DELETE FROM recipes WHERE id = ?', [recipeId]);
     await connection.commit();
     return result.affectedRows > 0;
@@ -329,10 +381,24 @@ export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
 };
 
 export const toggleRecipeVisibility = async (recipeId: string, visibility: boolean): Promise<Recipe | null> => {
-  const [result] = await pool.query<OkPacket>('UPDATE recipes SET visibility = ?, updated_at = NOW() WHERE id = ?', [visibility, recipeId]);
-  if (result.affectedRows > 0) {
-    const updatedRecipe = await getRecipeById(recipeId); // Fetch full recipe to reflect change
-    return updatedRecipe || null;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await pool.query<OkPacket>('UPDATE recipes SET visibility = ?, updated_at = NOW() WHERE id = ?', [visibility, recipeId]);
+    
+    if (result.affectedRows > 0) {
+      await connection.commit();
+      const updatedRecipe = await getRecipeById(recipeId); 
+      return updatedRecipe || null;
+    } else {
+      await connection.rollback();
+      return null;
+    }
+  } catch (error) {
+    await connection.rollback();
+    console.error(`Error toggling visibility for recipe ${recipeId}:`, error);
+    return null;
+  } finally {
+    connection.release();
   }
-  return null;
 };
