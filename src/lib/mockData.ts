@@ -54,7 +54,7 @@ const mapDbRowToRecipe = (row: RowDataPacket): Omit<Recipe, 'ingredients' | 'ste
   description: row.description,
   imageUrl: row.image_url,
   aiHint: row.ai_hint,
-  visibility: !!row.visibility,
+  visibility: !!row.visibility, // Ensure boolean
   prepTime: row.prep_time,
   cookTime: row.cook_time,
   totalTime: row.total_time,
@@ -85,10 +85,17 @@ export const getRecipes = async (): Promise<Recipe[]> => {
 
 export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
    const [recipeRows] = await pool.query<RowDataPacket[]>(`
-    SELECT * FROM recipes ORDER BY created_at DESC
+    SELECT id, name, category, visibility, created_at, updated_at FROM recipes ORDER BY created_at DESC
   `);
+  // For the admin table, we don't need full details like ingredients/steps initially
   return recipeRows.map(row => ({
-      ...mapDbRowToRecipe(row),
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      visibility: !!row.visibility,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      // These are not fetched or needed for the admin list view, keep them minimal
       ingredients: [], 
       steps: [],       
   }));
@@ -158,7 +165,7 @@ export const addRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'u
 
     await connection.query('INSERT INTO recipes SET ?', recipeDbData);
 
-    for (const ing of recipeData.ingredients) {
+    for (const [index, ing] of recipeData.ingredients.entries()) {
       const ingredientId = generateId();
       await connection.query('INSERT INTO ingredients SET ?', {
         id: ingredientId,
@@ -168,7 +175,7 @@ export const addRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'u
         unit: ing.unit,
         image_url: ing.imageUrl,
         ai_hint: ing.aiHint,
-        item_order: ing.item_order || 0, // Ensure item_order is set
+        item_order: index, // Use the actual index for item_order
       });
     }
 
@@ -212,11 +219,21 @@ export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<R
   try {
     await connection.beginTransaction();
 
-    const recipePayload: any = { ...updatedData };
-    delete recipePayload.ingredients;
-    delete recipePayload.steps;
-    delete recipePayload.nutritionalInfoPerServing; // Handle separately
+    // Create a mutable copy for database field mapping
+    const recipePayload: { [key: string]: any } = {};
 
+    // Directly map fields if they exist in updatedData
+    if (updatedData.name !== undefined) recipePayload.name = updatedData.name;
+    if (updatedData.category !== undefined) recipePayload.category = updatedData.category;
+    if (updatedData.description !== undefined) recipePayload.description = updatedData.description;
+    if (updatedData.imageUrl !== undefined) recipePayload.image_url = updatedData.imageUrl;
+    if (updatedData.aiHint !== undefined) recipePayload.ai_hint = updatedData.aiHint;
+    if (updatedData.visibility !== undefined) recipePayload.visibility = updatedData.visibility;
+    if (updatedData.prepTime !== undefined) recipePayload.prep_time = updatedData.prepTime;
+    if (updatedData.cookTime !== undefined) recipePayload.cook_time = updatedData.cookTime;
+    if (updatedData.totalTime !== undefined) recipePayload.total_time = updatedData.totalTime;
+    if (updatedData.servings !== undefined) recipePayload.servings = updatedData.servings;
+    
     if (updatedData.nutritionalInfoPerServing) {
       recipePayload.nutritional_calories = updatedData.nutritionalInfoPerServing.calories;
       recipePayload.nutritional_protein = updatedData.nutritionalInfoPerServing.protein;
@@ -224,24 +241,18 @@ export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<R
       recipePayload.nutritional_carbs = updatedData.nutritionalInfoPerServing.carbs;
     }
     
-    recipePayload.image_url = updatedData.imageUrl;
-    recipePayload.prep_time = updatedData.prepTime;
-    recipePayload.cook_time = updatedData.cookTime;
-    recipePayload.total_time = updatedData.totalTime;
-
-
     if (Object.keys(recipePayload).length > 0) {
-         await connection.query('UPDATE recipes SET ?, updated_at = NOW() WHERE id = ?', [recipePayload, recipeId]);
+         recipePayload.updated_at = new Date();
+         await connection.query('UPDATE recipes SET ? WHERE id = ?', [recipePayload, recipeId]);
     }
 
 
     // Ingredients and steps update logic:
-    // Option 1: Delete all existing and re-insert (simpler for full updates)
-    // Option 2: Diff and update/insert/delete (more complex)
+    // Delete all existing and re-insert
     if (updatedData.ingredients) {
         await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
         for (const [index, ing] of updatedData.ingredients.entries()) {
-            const ingredientId = ing.id || generateId(); // Reuse ID if provided, else generate
+            const ingredientId = ing.id && ing.id !== '' ? ing.id : generateId(); // Reuse ID if provided and valid, else generate
              await connection.query('INSERT INTO ingredients SET ?', {
                 id: ingredientId,
                 recipe_id: recipeId,
@@ -257,12 +268,12 @@ export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<R
 
     if (updatedData.steps) {
         await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
-        for (const step of updatedData.steps) {
-            const stepId = step.id || generateId(); // Reuse ID if provided
+        for (const [index, step] of updatedData.steps.entries()) { // ensure stepNumber matches index for simplicity here
+            const stepId = step.id && step.id !== '' ? step.id : generateId(); // Reuse ID if provided and valid
             await connection.query('INSERT INTO recipe_steps SET ?', {
                 id: stepId,
                 recipe_id: recipeId,
-                step_number: step.stepNumber,
+                step_number: index + 1, // Assuming stepNumber should be based on array order for simplicity
                 instruction: step.instruction,
                 image_url: step.imageUrl,
                 ai_hint: step.aiHint,
@@ -273,7 +284,8 @@ export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<R
     }
     
     await connection.commit();
-    return getRecipeById(recipeId).then(r => r || null);
+    const freshRecipe = await getRecipeById(recipeId);
+    return freshRecipe || null;
 
   } catch (error) {
       await connection.rollback();
@@ -310,4 +322,3 @@ export const toggleRecipeVisibility = async (recipeId: string, visibility: boole
   }
   return null;
 };
-
