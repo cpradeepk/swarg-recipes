@@ -1,5 +1,5 @@
 
-import type { Recipe, User } from "@/types";
+import type { Recipe, User, Ingredient, RecipeStep } from "@/types";
 
 export const mockUsers: User[] = [
   { id: "user1", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
@@ -7,7 +7,7 @@ export const mockUsers: User[] = [
   { id: "admin2", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
 ];
 
-export const mockRecipes: Recipe[] = [
+export let mockRecipes: Recipe[] = [
   {
     id: "pasta-carbonara",
     name: "Classic Pasta Carbonara",
@@ -119,16 +119,88 @@ export const mockRecipes: Recipe[] = [
   }
 ];
 
+// Helper to generate unique IDs (simple version for mock data)
+const generateId = (prefix: string = 'item') => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
 // Simulate DB functions
 export const getRecipes = async (): Promise<Recipe[]> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.filter(r => r.visibility !== false)), 500));
+  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.filter(r => r.visibility !== false)), 200));
 };
 
 export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockRecipes), 300));
+  return new Promise(resolve => setTimeout(() => resolve([...mockRecipes]), 200)); // Return a copy
 }
 
 export const getRecipeById = async (id: string): Promise<Recipe | undefined> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.find(r => r.id === id)), 300));
+  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.find(r => r.id === id)), 200));
 };
 
+export const addRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<Recipe> => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const newRecipe: Recipe = {
+        ...recipeData,
+        id: generateId('recipe'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // Ensure ingredients and steps also have IDs if they don't already
+        // The server action should already be assigning these.
+        ingredients: recipeData.ingredients.map(ing => ({ ...ing, id: ing.id || generateId('ing') })),
+        steps: recipeData.steps.map(step => ({ ...step, id: step.id || generateId('step') })),
+      };
+      mockRecipes.push(newRecipe);
+      resolve(newRecipe);
+    }, 300);
+  });
+};
+
+// Placeholder for updateRecipe - to be implemented later
+export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Recipe | null> => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const recipeIndex = mockRecipes.findIndex(r => r.id === recipeId);
+      if (recipeIndex > -1) {
+        const ingredientsWithIds = updatedData.ingredients?.map(ing => ({...ing, id: ing.id || generateId('ing')}));
+        const stepsWithIdsAndNumbers = updatedData.steps?.map((step, index) => ({...step, id: step.id || generateId('step'), stepNumber: index + 1}));
+
+        mockRecipes[recipeIndex] = {
+          ...mockRecipes[recipeIndex],
+          ...updatedData,
+          ingredients: ingredientsWithIds || mockRecipes[recipeIndex].ingredients,
+          steps: stepsWithIdsAndNumbers || mockRecipes[recipeIndex].steps,
+          updatedAt: new Date(),
+        };
+        resolve(mockRecipes[recipeIndex]);
+      } else {
+        resolve(null);
+      }
+    }, 300);
+  });
+};
+
+// Placeholder for deleteRecipe - to be implemented later
+export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
+   return new Promise(resolve => {
+    setTimeout(() => {
+      const initialLength = mockRecipes.length;
+      mockRecipes = mockRecipes.filter(r => r.id !== recipeId);
+      resolve(mockRecipes.length < initialLength);
+    }, 300);
+  });
+};
+
+// Placeholder for toggleRecipeVisibility - to be implemented later
+export const toggleRecipeVisibility = async (recipeId: string, visibility: boolean): Promise<Recipe | null> => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const recipeIndex = mockRecipes.findIndex(r => r.id === recipeId);
+      if (recipeIndex > -1) {
+        mockRecipes[recipeIndex].visibility = visibility;
+        mockRecipes[recipeIndex].updatedAt = new Date();
+        resolve(mockRecipes[recipeIndex]);
+      } else {
+        resolve(null);
+      }
+    }, 300);
+  });
+};

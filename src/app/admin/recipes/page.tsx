@@ -1,11 +1,13 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListPlus, Edit3, Eye } from "lucide-react";
+import RecipeForm from "@/components/admin/RecipeForm"; // Import the new form
 
 export default function AdminRecipesPage() {
   return (
     <Tabs defaultValue="manage" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
+      <TabsList className="grid w-full grid-cols-2 md:w-[400px] mb-6">
         <TabsTrigger value="manage"><Edit3 className="mr-2 h-4 w-4 inline-block" />Manage Recipes</TabsTrigger>
         <TabsTrigger value="add"><ListPlus className="mr-2 h-4 w-4 inline-block" />Add New Recipe</TabsTrigger>
       </TabsList>
@@ -36,32 +38,8 @@ export default function AdminRecipesPage() {
         </Card>
       </TabsContent>
       <TabsContent value="add">
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a New Recipe</CardTitle>
-            <CardDescription>
-              Fill out the form below to add a new recipe to the system.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              A comprehensive form for adding new recipes will be available here. It will include fields for:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-4">
-              <li>Core details: Name, Category, Description, Image, Visibility.</li>
-              <li>Timings: Prep, Cook, Total Time, Servings.</li>
-              <li>Nutritional Information.</li>
-              <li>Dynamic ingredient management.</li>
-              <li>Dynamic step-by-step instruction management.</li>
-              <li>Ingredient-to-step association.</li>
-            </ul>
-             <div className="p-6 bg-muted rounded-md text-center">
-                <ListPlus className="mx-auto h-12 w-12 text-primary mb-2" />
-                <p className="font-semibold">New Recipe Form Area</p>
-                <p className="text-sm text-muted-foreground">Recipe creation form coming soon.</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Replace placeholder with the RecipeForm component */}
+        <RecipeForm />
       </TabsContent>
     </Tabs>
   );
