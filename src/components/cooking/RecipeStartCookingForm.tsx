@@ -8,21 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Languages, PlayCircle } from "lucide-react";
+import { User, Languages, PlayCircle, VolumeX } from "lucide-react";
 
 interface RecipeStartCookingFormProps {
   recipeId: string;
 }
 
 const languageOptions = [
-  { value: "en", label: "English", speechLang: "en-US", translateLang: "English" },
-  { value: "hi", label: "हिंदी (Hindi)", speechLang: "hi-IN", translateLang: "Hindi" },
-  { value: "kn", label: "ಕನ್ನಡ (Kannada)", speechLang: "kn-IN", translateLang: "Kannada" },
+  { value: "none", label: "🔇 No Sound (Text Only)", speechLang: "", translateLang: "" },
+  { value: "en", label: "🇬🇧 English", speechLang: "en-US", translateLang: "English" },
+  { value: "hi", label: "🇮🇳 हिंदी (Hindi)", speechLang: "hi-IN", translateLang: "Hindi" },
+  { value: "kn", label: "🇮🇳 ಕನ್ನಡ (Kannada)", speechLang: "kn-IN", translateLang: "Kannada" },
 ];
 
 export default function RecipeStartCookingForm({ recipeId }: RecipeStartCookingFormProps) {
   const [userName, setUserName] = useState("");
-  const [voiceLang, setVoiceLang] = useState("en"); // Default to English
+  const [voiceLang, setVoiceLang] = useState("none"); // Default to "No Sound"
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,8 +38,8 @@ export default function RecipeStartCookingForm({ recipeId }: RecipeStartCookingF
 
     localStorage.setItem("cookingUserName", userName.trim());
     localStorage.setItem("cookingVoiceLang", voiceLang);
-    localStorage.setItem("cookingSpeechLangCode", selectedLanguageDetails?.speechLang || "en-US");
-    localStorage.setItem("cookingTranslateLangName", selectedLanguageDetails?.translateLang || "English");
+    localStorage.setItem("cookingSpeechLangCode", selectedLanguageDetails?.speechLang || "");
+    localStorage.setItem("cookingTranslateLangName", selectedLanguageDetails?.translateLang || "");
 
     router.push(`/recipes/${recipeId}/cook`);
   };
@@ -90,3 +91,4 @@ export default function RecipeStartCookingForm({ recipeId }: RecipeStartCookingF
     </Card>
   );
 }
+

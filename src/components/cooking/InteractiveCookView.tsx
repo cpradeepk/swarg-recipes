@@ -3,6 +3,7 @@
 
 import type { Recipe, RecipeStep, Ingredient } from "@/types";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -28,13 +29,13 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
   const [isAlarming, setIsAlarming] = useState(false);
   
   const [userName, setUserName] = useState("Guest");
-  const [voiceLangValue, setVoiceLangValue] = useState("en"); // 'en', 'hi', 'kn'
-  const [speechLangCode, setSpeechLangCode] = useState("en-US"); // 'en-US', 'hi-IN', 'kn-IN'
-  const [translateLangName, setTranslateLangName] = useState("English"); // 'English', 'Hindi', 'Kannada'
+  const [voiceLangValue, setVoiceLangValue] = useState("none"); // Default to none
+  const [speechLangCode, setSpeechLangCode] = useState(""); 
+  const [translateLangName, setTranslateLangName] = useState(""); 
 
   const [currentSpokenText, setCurrentSpokenText] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Default to muted if "No Sound" is chosen
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,25 +44,29 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
   const currentStep: RecipeStep | undefined = recipe.steps[currentStepIndex];
 
   useEffect(() => {
-    // Retrieve user preferences from localStorage on mount
     const storedUserName = localStorage.getItem("cookingUserName");
     const storedVoiceLang = localStorage.getItem("cookingVoiceLang");
     const storedSpeechLangCode = localStorage.getItem("cookingSpeechLangCode");
     const storedTranslateLangName = localStorage.getItem("cookingTranslateLangName");
 
     if (storedUserName) setUserName(storedUserName);
-    if (storedVoiceLang) setVoiceLangValue(storedVoiceLang);
+    if (storedVoiceLang) {
+      setVoiceLangValue(storedVoiceLang);
+      if (storedVoiceLang === "none") {
+        setIsMuted(true);
+      } else {
+        setIsMuted(false);
+      }
+    }
     if (storedSpeechLangCode) setSpeechLangCode(storedSpeechLangCode);
     if (storedTranslateLangName) setTranslateLangName(storedTranslateLangName);
     
-    // Log recipe preparation start (placeholder)
-    console.log(`Recipe cooking started by: ${storedUserName || 'Guest'}, Recipe: ${recipe.name}, Language: ${storedTranslateLangName || 'English'}`);
+    console.log(`Recipe cooking started by: ${storedUserName || 'Guest'}, Recipe: ${recipe.name}, Language: ${storedVoiceLang || 'none'}`);
 
-
-    audioRef.current = new Audio('/alarm.mp3');
+    audioRef.current = new Audio('/alarm.mp3'); // Ensure alarm.mp3 is in /public
     audioRef.current.loop = false;
 
-    return () => { // Cleanup
+    return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -69,7 +74,7 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
       if (alarmIntervalRef.current) {
         clearInterval(alarmIntervalRef.current);
       }
-      if (window.speechSynthesis.speaking) {
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
       }
     };
@@ -87,40 +92,56 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
     }
   }, []);
 
-  // Effect for handling translation and setting text to be spoken
+  const getLinkedIngredients = useCallback((): Ingredient[] => {
+    if (!currentStep || !currentStep.ingredientIds || !recipe.ingredients) return [];
+    return recipe.ingredients.filter(ing => currentStep.ingredientIds?.includes(ing.id));
+  }, [currentStep, recipe.ingredients]);
+
+
   useEffect(() => {
-    if (!currentStep) return;
-    if (isMuted) { // If muted, don't process speech
-        setCurrentSpokenText(null); 
-        if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
-        return;
+    if (!currentStep || isMuted || voiceLangValue === "none") {
+      setCurrentSpokenText(null);
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      return;
     }
 
     let isMounted = true;
     const processSpeech = async () => {
-      if (voiceLangValue === "en" || translateLangName === "English") {
-        if (isMounted) setCurrentSpokenText(currentStep.instruction);
+      const linkedIngredients = getLinkedIngredients();
+      let ingredientsText = "";
+      if (linkedIngredients.length > 0) {
+        const ingredientNames = linkedIngredients.map(ing => `${ing.quantity} ${ing.unit} ${ing.name}`).join(", ");
+        // This prefix will also be translated if the target language is not English.
+        // For more natural sounding translations, you might need a more sophisticated i18n setup for these fixed phrases.
+        ingredientsText = `For this step, you will need: ${ingredientNames}. `;
+      }
+      
+      const fullInstruction = ingredientsText + currentStep.instruction;
+
+      if (voiceLangValue === "en" || !translateLangName) {
+        if (isMounted) setCurrentSpokenText(fullInstruction);
       } else {
         try {
           const translationOutput = await translateRecipeStep({
-            step: currentStep.instruction,
+            step: fullInstruction,
             language: translateLangName,
           });
           if (isMounted) setCurrentSpokenText(translationOutput.translatedStep);
         } catch (error) {
           console.error("Error translating step:", error);
-          if (isMounted) setCurrentSpokenText(currentStep.instruction); // Fallback to original on error
+          if (isMounted) setCurrentSpokenText(fullInstruction); 
         }
       }
     };
     processSpeech();
     return () => { isMounted = false; }
-  }, [currentStep, voiceLangValue, translateLangName, isMuted]);
+  }, [currentStep, voiceLangValue, translateLangName, isMuted, getLinkedIngredients]);
 
 
-  // Effect for speaking the text
   useEffect(() => {
-    if (currentSpokenText && !isMuted) {
+    if (currentSpokenText && !isMuted && speechLangCode && voiceLangValue !== "none") {
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
       }
@@ -128,22 +149,25 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
       utteranceRef.current = new SpeechSynthesisUtterance(currentSpokenText);
       utteranceRef.current.lang = speechLangCode;
       
-      // Wait for voices to be loaded
       const voices = window.speechSynthesis.getVoices();
-      const targetVoice = voices.find(voice => voice.lang === speechLangCode);
-      if (targetVoice) {
-        utteranceRef.current.voice = targetVoice;
-      } else if (voices.length > 0) {
-        // Fallback to a default voice if specific language voice not found, or first available
-        const fallbackVoice = voices.find(voice => voice.lang.startsWith(speechLangCode.substring(0,2))) || voices[0];
-        if(fallbackVoice) utteranceRef.current.voice = fallbackVoice;
+      if (voices.length > 0) { // Voices might not be loaded immediately
+        const targetVoice = voices.find(voice => voice.lang === speechLangCode);
+        if (targetVoice) {
+          utteranceRef.current.voice = targetVoice;
+        } else {
+          const fallbackVoice = voices.find(voice => voice.lang.startsWith(speechLangCode.substring(0,2))) || voices[0];
+          if(fallbackVoice) utteranceRef.current.voice = fallbackVoice;
+        }
+      } else {
+         // Handle case where voices are not yet loaded - speech might use default system voice
+         console.warn("Speech synthesis voices not loaded yet. Speech may use default system voice.");
       }
 
 
       utteranceRef.current.onstart = () => setIsSpeaking(true);
       utteranceRef.current.onend = () => {
         setIsSpeaking(false);
-        setCurrentSpokenText(null); // Clear after speaking to prevent re-speaking on other state changes
+        setCurrentSpokenText(null); 
       };
       utteranceRef.current.onerror = (event) => {
         console.error("Speech synthesis error:", event.error);
@@ -151,27 +175,24 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
         setCurrentSpokenText(null);
       };
       
-      // Small delay to ensure cancel has taken effect if called rapidly
       setTimeout(() => {
-          if(utteranceRef.current && utteranceRef.current.text === currentSpokenText) { // Check if text is still the one we want to speak
+          if(utteranceRef.current && utteranceRef.current.text === currentSpokenText && !isMuted && window.speechSynthesis) {
             window.speechSynthesis.speak(utteranceRef.current);
           }
       }, 100);
 
-    } else if (isMuted && window.speechSynthesis.speaking) {
+    } else if (window.speechSynthesis && window.speechSynthesis.speaking) {
          window.speechSynthesis.cancel();
     }
-  }, [currentSpokenText, speechLangCode, isMuted]);
+  }, [currentSpokenText, speechLangCode, isMuted, voiceLangValue]);
 
 
-  // Initialize or reset timer when step changes
   useEffect(() => {
     stopAlarm();
-    if (window.speechSynthesis.speaking) {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
-    // setCurrentSpokenText(null); // This will be handled by the translation/speech effect
 
     if (currentStep?.timerInSeconds && currentStep.timerInSeconds > 0) {
       setStepTimeLeft(currentStep.timerInSeconds);
@@ -182,7 +203,6 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
     }
   }, [currentStepIndex, currentStep?.timerInSeconds, stopAlarm]);
 
-  // Timer countdown logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (stepTimerActive && stepTimeLeft !== null && stepTimeLeft > 0) {
@@ -192,24 +212,24 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
     } else if (stepTimerActive && stepTimeLeft === 0) {
       setStepTimerActive(false);
       setIsAlarming(true);
-      if (!isMuted && audioRef.current) {
+      if (!isMuted && audioRef.current && voiceLangValue !== "none") {
          audioRef.current.play().catch(e => console.error("Error playing alarm sound:", e));
          if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
          alarmIntervalRef.current = setInterval(() => {
-            if (audioRef.current && !isMuted) {
-                audioRef.current.play().catch(e => console.error("Error playing alarm sound:", e));
+            if (audioRef.current && !isMuted && voiceLangValue !== "none") {
+                audioRef.current.play().catch(e => console.error("Error playing alarm sound (interval):", e));
             }
-         }, 10000);
+         }, 10000); // Repeat every 10 seconds
       }
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [stepTimerActive, stepTimeLeft, isMuted]);
+  }, [stepTimerActive, stepTimeLeft, isMuted, voiceLangValue]);
 
   const handleNextStep = useCallback(() => {
     stopAlarm();
-    if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+    if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
     if (currentStepIndex < recipe.steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
     }
@@ -217,16 +237,16 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
 
   const handlePreviousStep = useCallback(() => {
     stopAlarm();
-    if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+    if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
   }, [currentStepIndex, stopAlarm]);
 
   const toggleTimer = useCallback(() => {
-    if (stepTimeLeft === 0) return;
-    if (isAlarming) stopAlarm();
-    setStepTimerActive(!stepTimerActive);
+    if (stepTimeLeft === 0 && !isAlarming) return; // Don't start if timer already finished and not alarming
+    if (isAlarming) stopAlarm(); // If alarm is on, pressing button stops it.
+    else setStepTimerActive(!stepTimerActive); // Otherwise, toggle timer.
   }, [stepTimerActive, stepTimeLeft, isAlarming, stopAlarm]);
 
   const resetTimer = useCallback(() => {
@@ -238,24 +258,22 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
   }, [currentStep?.timerInSeconds, stopAlarm]);
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (!isMuted && window.speechSynthesis.speaking) { // If unmuting and was speaking, cancel
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    if (newMutedState && window.speechSynthesis && window.speechSynthesis.speaking) { 
         window.speechSynthesis.cancel();
     }
-    if (isAlarming && audioRef.current) { // If alarm was sounding
-        if (!isMuted) audioRef.current.pause(); // if unmuting (meaning it was muted), pause alarm
-        // else if it was unmuted and now muting, alarm will stop naturally in timer effect
+    // If alarm was sounding and we are muting, it will stop in the timer effect.
+    // If unmuting and alarm was supposed to be on, it might restart in timer effect.
+    // This assumes changing voiceLangValue to "none" in form would also set isMuted.
+    // For direct toggle, we'll update localStorage to persist mute state if "none" wasn't selected.
+    if (voiceLangValue !== "none") {
+        // Here you might want to save this mute preference to localStorage if it's a manual toggle
+        // and not tied to the "No Sound" language option. For now, it's session-based.
     }
   };
 
   const progressPercentage = ((currentStepIndex + 1) / recipe.steps.length) * 100;
-
-  const getLinkedIngredients = (): Ingredient[] => {
-    if (!currentStep || !currentStep.ingredientIds || !recipe.ingredients) return [];
-    // Ensure recipe.ingredients and ingredientIds are defined.
-    // The ingredientIds on currentStep come from the DB which are the actual ingredient IDs.
-    return recipe.ingredients.filter(ing => currentStep.ingredientIds?.includes(ing.id));
-  };
   const linkedIngredients = getLinkedIngredients();
 
   if (!currentStep) {
@@ -280,10 +298,12 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
             <CardTitle className="text-3xl font-bold text-primary text-center flex-grow">{recipe.name}</CardTitle>
-            <Button onClick={toggleMute} variant="ghost" size="icon" className="ml-auto">
-                {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-                <span className="sr-only">{isMuted ? "Unmute" : "Mute"}</span>
-            </Button>
+            {voiceLangValue !== "none" && ( // Only show mute toggle if a voice language is selected
+                 <Button onClick={toggleMute} variant="ghost" size="icon" className="ml-auto">
+                    {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+                    <span className="sr-only">{isMuted ? "Unmute" : "Mute"}</span>
+                </Button>
+            )}
         </div>
         <CardDescription className="text-center">
           Step {currentStep.stepNumber} of {recipe.steps.length} (Chef: {userName})
@@ -310,10 +330,20 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
                 <h4 className="text-lg font-semibold text-primary mb-2 flex items-center">
                     <ListChecks className="mr-2 h-5 w-5" /> Ingredients for this step:
                 </h4>
-                <ul className="list-disc list-inside space-y-1 pl-2">
+                <ul className="list-disc list-inside space-y-2 pl-2">
                     {linkedIngredients.map(ing => (
-                        <li key={ing.id} className="text-sm">
-                            {ing.quantity} {ing.unit} {ing.name}
+                        <li key={ing.id} className="text-sm flex items-center gap-2">
+                            {ing.imageUrl && (
+                                <Image
+                                    src={ing.imageUrl}
+                                    alt={ing.name}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-md object-cover"
+                                    data-ai-hint={ing.aiHint || ing.name.split(" ").slice(0,2).join(" ")}
+                                />
+                            )}
+                            <span>{ing.quantity} {ing.unit} {ing.name}</span>
                         </li>
                     ))}
                 </ul>
@@ -329,7 +359,7 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
             <div className="flex justify-center gap-3">
               <Button onClick={toggleTimer} variant={stepTimerActive ? "outline" : "default"} size="lg" disabled={stepTimeLeft === 0 && !isAlarming}>
                 {stepTimerActive ? <Pause className="mr-2" /> : <Play className="mr-2" />}
-                {stepTimerActive ? "Pause" : (stepTimeLeft === currentStep.timerInSeconds ? "Start Timer" : "Resume")}
+                {stepTimerActive ? "Pause" : (stepTimeLeft === currentStep.timerInSeconds ? "Start Timer" : (isAlarming ? "Stop Alarm" : "Resume"))}
               </Button>
               <Button onClick={resetTimer} variant="outline" size="lg">
                 <RotateCcw className="mr-2" /> Reset
@@ -345,7 +375,6 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
           <Button onClick={handlePreviousStep} disabled={currentStepIndex === 0} variant="outline" size="lg">
             <ChevronLeft className="mr-2" /> Previous Step
           </Button>
-          {/* "Read Aloud" button is removed as speech is automatic */}
           <Button onClick={handleNextStep} disabled={currentStepIndex === recipe.steps.length - 1} size="lg">
             Next Step <ChevronRight className="ml-2" />
           </Button>
