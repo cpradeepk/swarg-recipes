@@ -1,6 +1,13 @@
 
 import { z } from 'zod';
 
+// This can be used if you give temporary client-side IDs to ingredients before saving
+// For now, we'll use indexes in the form for simplicity
+// export const IngredientClientSideSchema = z.object({
+//   tempId: z.string(), // or z.number() if using index
+//   name: z.string().min(1, "Name is required"),
+// });
+
 export const IngredientFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   quantity: z.coerce.number().min(0, "Quantity must be non-negative"), // Allow 0 for "to taste" items
@@ -16,7 +23,8 @@ export const RecipeStepFormSchema = z.object({
   aiHint: z.string().optional(),
   timerInSeconds: z.coerce.number().int().nonnegative("Timer must be a non-negative integer").optional(),
   temperature: z.string().optional(),
-  // ingredientIds will be handled later if UI for association is built
+  // selectedIngredientIndexes will store the indexes of ingredients from the form's ingredients array
+  selectedIngredientIndexes: z.array(z.number()).optional().default([]),
 });
 export type RecipeStepFormData = z.infer<typeof RecipeStepFormSchema>;
 

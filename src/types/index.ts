@@ -17,7 +17,8 @@ export interface RecipeStep {
   aiHint?: string;
   timerInSeconds?: number;
   temperature?: string;
-  ingredientIds?: string[]; // This might be complex to populate from DB initially
+  // ingredientIds will store the actual DB IDs of ingredients associated with this step
+  ingredientIds?: string[];
 }
 
 export interface NutritionalInfo {

@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Trash2, PlusCircle, Loader2 } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Trash2, PlusCircle, Loader2, Link2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createRecipeAction } from '@/lib/actions/recipeActions';
 import { Separator } from '../ui/separator';
@@ -39,10 +40,10 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
       prepTime: '',
       cookTime: '',
       totalTime: '',
-      servings: undefined, // Changed from 1 to undefined as it's optional
+      servings: undefined,
       nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
       ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
-      steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '' }],
+      steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] }],
     },
   });
 
@@ -56,6 +57,8 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
     name: "steps",
   });
 
+  const watchedIngredients = form.watch('ingredients');
+
   const onSubmit = async (data: RecipeFormData) => {
     setIsSubmitting(true);
     try {
@@ -65,7 +68,21 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
           title: "Recipe Created!",
           description: `Recipe "${data.name}" has been successfully added.`,
         });
-        form.reset(); // Reset form to default values
+        form.reset({ // Reset form to default values, ensuring arrays are reset correctly
+            name: '',
+            category: '',
+            description: '',
+            imageUrl: '',
+            aiHint: '',
+            visibility: true,
+            prepTime: '',
+            cookTime: '',
+            totalTime: '',
+            servings: undefined,
+            nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
+            ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
+            steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] }],
+        });
         if (onFormSubmit) onFormSubmit();
       } else {
         toast({
@@ -186,7 +203,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
               />
             </div>
             <FormField control={form.control} name="servings" render={({ field }) => (
-                <FormItem><FormLabel>Servings</FormLabel><FormControl><Input type="number" placeholder="e.g., 4" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Servings</FormLabel><FormControl><Input type="number" placeholder="e.g., 4" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
               )}
             />
           </CardContent>
@@ -200,19 +217,19 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                  <FormField control={form.control} name="nutritionalInfoPerServing.calories" render={({ field }) => (
-                    <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="e.g., 350" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" placeholder="e.g., 350" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="nutritionalInfoPerServing.protein" render={({ field }) => (
-                    <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''}  onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}/></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="nutritionalInfoPerServing.fat" render={({ field }) => (
-                    <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 15" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 15" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="nutritionalInfoPerServing.carbs" render={({ field }) => (
-                    <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
@@ -233,7 +250,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={form.control} name={`ingredients.${index}.quantity`} render={({ field: f }) => (
-                        <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" placeholder="e.g., 200" {...f} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" step="any" placeholder="e.g., 200" {...f} /></FormControl><FormMessage /></FormItem>
                       )}
                     />
                     <FormField control={form.control} name={`ingredients.${index}.unit`} render={({ field: f }) => (
@@ -266,37 +283,74 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
             <CardTitle>Recipe Steps</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {stepFields.map((field, index) => (
+            {stepFields.map((field, stepIndex) => (
               <div key={field.id} className="p-4 border rounded-md space-y-3 relative">
-                <h4 className="font-medium text-md">Step {index + 1}</h4>
-                <FormField control={form.control} name={`steps.${index}.instruction`} render={({ field: f }) => (
+                <h4 className="font-medium text-md">Step {stepIndex + 1}</h4>
+                <FormField control={form.control} name={`steps.${stepIndex}.instruction`} render={({ field: f }) => (
                     <FormItem><FormLabel>Instruction</FormLabel><FormControl><Textarea placeholder="e.g., Boil water for pasta..." {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
-                <FormField control={form.control} name={`steps.${index}.imageUrl`} render={({ field: f }) => (
+                <FormField control={form.control} name={`steps.${stepIndex}.imageUrl`} render={({ field: f }) => (
                     <FormItem><FormLabel>Image URL (Optional)</FormLabel><FormControl><Input placeholder="https://example.com/step_image.png" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
-                <FormField control={form.control} name={`steps.${index}.aiHint`} render={({ field: f }) => (
+                <FormField control={form.control} name={`steps.${stepIndex}.aiHint`} render={({ field: f }) => (
                     <FormItem><FormLabel>AI Hint (Optional)</FormLabel><FormControl><Input placeholder="e.g., boiling water" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField control={form.control} name={`steps.${index}.timerInSeconds`} render={({ field: f }) => (
-                        <FormItem><FormLabel>Timer (seconds, Optional)</FormLabel><FormControl><Input type="number" placeholder="e.g., 600" {...f} value={f.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormField control={form.control} name={`steps.${stepIndex}.timerInSeconds`} render={({ field: f }) => (
+                        <FormItem><FormLabel>Timer (seconds, Optional)</FormLabel><FormControl><Input type="number" placeholder="e.g., 600" {...f} value={f.value ?? ''} onChange={e => f.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                       )}
                     />
-                    <FormField control={form.control} name={`steps.${index}.temperature`} render={({ field: f }) => (
+                    <FormField control={form.control} name={`steps.${stepIndex}.temperature`} render={({ field: f }) => (
                         <FormItem><FormLabel>Temperature (Optional)</FormLabel><FormControl><Input placeholder="e.g., High heat, 180°C" {...f} /></FormControl><FormMessage /></FormItem>
                       )}
                     />
                 </div>
-                <Button type="button" variant="destructive" size="sm" onClick={() => removeStep(index)} className="absolute top-3 right-3">
+                
+                <div>
+                  <Label className="mb-2 block text-sm font-medium">Link Ingredients to this Step:</Label>
+                  <div className="space-y-2 p-3 border rounded-md bg-muted/50 max-h-48 overflow-y-auto">
+                    {watchedIngredients.length > 0 ? watchedIngredients.map((ing, ingIndex) => (
+                      <FormField
+                        key={`${field.id}-ing-${ingIndex}`} // Use a key that's unique to the step and ingredient
+                        control={form.control}
+                        name={`steps.${stepIndex}.selectedIngredientIndexes`}
+                        render={({ field: f }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={f.value?.includes(ingIndex)}
+                                onCheckedChange={(checked) => {
+                                  const currentValue = f.value || [];
+                                  return checked
+                                    ? f.onChange([...currentValue, ingIndex])
+                                    : f.onChange(
+                                        currentValue.filter(
+                                          (value) => value !== ingIndex
+                                        )
+                                      );
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal text-sm">
+                              {ing.name || `Ingredient ${ingIndex + 1}`} ({ing.quantity} {ing.unit})
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    )) : <p className="text-xs text-muted-foreground">Add ingredients to the recipe first to link them here.</p>}
+                  </div>
+                   <FormMessage>{form.formState.errors.steps?.[stepIndex]?.selectedIngredientIndexes?.message}</FormMessage>
+                </div>
+
+                <Button type="button" variant="destructive" size="sm" onClick={() => removeStep(stepIndex)} className="absolute top-3 right-3">
                   <Trash2 className="h-4 w-4 mr-1" /> Remove Step
                 </Button>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={() => appendStep({ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '' })}>
+            <Button type="button" variant="outline" onClick={() => appendStep({ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] })}>
               <PlusCircle className="h-4 w-4 mr-2" /> Add Step
             </Button>
             <FormMessage>{form.formState.errors.steps?.root?.message || form.formState.errors.steps?.message}</FormMessage>
