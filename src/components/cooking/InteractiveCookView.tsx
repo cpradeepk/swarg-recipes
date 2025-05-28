@@ -2,7 +2,7 @@
 "use client";
 
 import type { Recipe, RecipeStep, Ingredient } from "@/types";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -24,11 +24,46 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepTimerActive, setStepTimerActive] = useState(false);
   const [stepTimeLeft, setStepTimeLeft] = useState<number | null>(null);
+  const [isAlarming, setIsAlarming] = useState(false);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentStep: RecipeStep | undefined = recipe.steps[currentStepIndex];
 
+  useEffect(() => {
+    // Ensure this only runs on the client after mount
+    audioRef.current = new Audio('/alarm.mp3'); // User needs to place alarm.mp3 in /public
+    audioRef.current.loop = false; // We will control repeating with setInterval
+
+    // Cleanup audio element on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (alarmIntervalRef.current) {
+        clearInterval(alarmIntervalRef.current);
+      }
+    };
+  }, []);
+
+
+  const stopAlarm = useCallback(() => {
+    setIsAlarming(false);
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, []);
+
   // Initialize or reset timer when step changes
   useEffect(() => {
+    stopAlarm(); // Stop alarm when step changes
     if (currentStep?.timerInSeconds && currentStep.timerInSeconds > 0) {
       setStepTimeLeft(currentStep.timerInSeconds);
       setStepTimerActive(false);
@@ -36,7 +71,7 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
       setStepTimeLeft(null);
       setStepTimerActive(false);
     }
-  }, [currentStepIndex, currentStep?.timerInSeconds]);
+  }, [currentStepIndex, currentStep?.timerInSeconds, stopAlarm]);
 
   // Timer countdown logic
   useEffect(() => {
@@ -47,8 +82,12 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
       }, 1000);
     } else if (stepTimerActive && stepTimeLeft === 0) {
       setStepTimerActive(false);
-      // Optionally: play a sound or show a notification
-      alert(`Timer for "${currentStep?.instruction.substring(0,30)}..." has finished!`);
+      setIsAlarming(true);
+      audioRef.current?.play().catch(e => console.error("Error playing alarm sound:", e)); // Play immediately once
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current); // Clear previous interval if any
+      alarmIntervalRef.current = setInterval(() => {
+        audioRef.current?.play().catch(e => console.error("Error playing alarm sound:", e));
+      }, 10000); // Repeat every 10 seconds
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -56,28 +95,32 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
   }, [stepTimerActive, stepTimeLeft, currentStep?.instruction]);
 
   const handleNextStep = useCallback(() => {
+    stopAlarm();
     if (currentStepIndex < recipe.steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
     }
-  }, [currentStepIndex, recipe.steps.length]);
+  }, [currentStepIndex, recipe.steps.length, stopAlarm]);
 
   const handlePreviousStep = useCallback(() => {
+    stopAlarm();
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
-  }, [currentStepIndex]);
+  }, [currentStepIndex, stopAlarm]);
 
   const toggleTimer = useCallback(() => {
     if (stepTimeLeft === 0) return; // Don't start if already finished
+    if (isAlarming) stopAlarm(); // Stop alarm if it's sounding and user interacts with timer
     setStepTimerActive(!stepTimerActive);
-  }, [stepTimerActive, stepTimeLeft]);
+  }, [stepTimerActive, stepTimeLeft, isAlarming, stopAlarm]);
 
   const resetTimer = useCallback(() => {
+    stopAlarm();
     if (currentStep?.timerInSeconds) {
       setStepTimeLeft(currentStep.timerInSeconds);
       setStepTimerActive(false);
     }
-  }, [currentStep?.timerInSeconds]);
+  }, [currentStep?.timerInSeconds, stopAlarm]);
 
   const progressPercentage = ((currentStepIndex + 1) / recipe.steps.length) * 100;
 
@@ -145,13 +188,13 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
 
 
         {currentStep.timerInSeconds && currentStep.timerInSeconds > 0 && (
-          <div className="p-4 border rounded-lg space-y-3">
+          <div className={`p-4 border rounded-lg space-y-3 ${isAlarming ? 'border-destructive ring-2 ring-destructive shadow-lg' : ''}`}>
             <div className="flex items-center justify-center text-4xl font-mono font-bold text-accent">
               <Clock className="mr-3 h-10 w-10" />
               <span>{formatTime(stepTimeLeft)}</span>
             </div>
             <div className="flex justify-center gap-3">
-              <Button onClick={toggleTimer} variant={stepTimerActive ? "outline" : "default"} size="lg" disabled={stepTimeLeft === 0}>
+              <Button onClick={toggleTimer} variant={stepTimerActive ? "outline" : "default"} size="lg" disabled={stepTimeLeft === 0 && !isAlarming}>
                 {stepTimerActive ? <Pause className="mr-2" /> : <Play className="mr-2" />}
                 {stepTimerActive ? "Pause" : (stepTimeLeft === currentStep.timerInSeconds ? "Start Timer" : "Resume")}
               </Button>
@@ -159,6 +202,7 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
                 <RotateCcw className="mr-2" /> Reset
               </Button>
             </div>
+            {isAlarming && <p className="text-center text-destructive font-medium mt-2">Timer finished!</p>}
           </div>
         )}
 
@@ -179,3 +223,4 @@ export default function InteractiveCookView({ recipe }: InteractiveCookViewProps
     </Card>
   );
 }
+

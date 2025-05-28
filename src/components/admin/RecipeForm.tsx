@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { RecipeFormData } from '@/lib/schemas/recipeSchemas';
@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, PlusCircle, Loader2, Link2 } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createRecipeAction, updateRecipeAction } from '@/lib/actions/recipeActions';
 import { Separator } from '../ui/separator';
@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation';
 
 interface RecipeFormProps {
   initialData?: RecipeFormData;
-  recipeId?: string; // Added recipeId for updates
+  recipeId?: string;
   onFormSubmit?: () => void;
 }
 
@@ -54,7 +54,6 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
     defaultValues: initialData || defaultFormValues,
   });
 
-  // Reset form if initialData changes (e.g., navigating from add to edit)
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
@@ -69,12 +68,55 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
     name: "ingredients",
   });
 
-  const { fields: stepFields, append: appendStep, remove: removeStep } = useFieldArray({
+  const { fields: stepFields, append: appendStep, remove: removeStep, move: moveStep } = useFieldArray({
     control: form.control,
     name: "steps",
   });
 
   const watchedIngredients = form.watch('ingredients');
+
+  // Drag and Drop state for steps
+  const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
+  const [dragOverStepIndex, setDragOverStepIndex] = useState<number | null>(null);
+
+
+  const handleStepDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedStepIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+     // Optional: Add a class for visual feedback while dragging
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleStepDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault(); // Necessary for onDrop to fire
+    setDragOverStepIndex(index);
+  };
+  
+  const handleStepDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); // Necessary for onDrop to fire
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleStepDrop = (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedStepIndex === null || draggedStepIndex === targetIndex) {
+      cleanupDragState();
+      return;
+    }
+    moveStep(draggedStepIndex, targetIndex);
+    cleanupDragState();
+  };
+
+  const handleStepDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    cleanupDragState();
+  };
+  
+  const cleanupDragState = () => {
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
+  };
+
 
   const onSubmit = async (data: RecipeFormData) => {
     setIsSubmitting(true);
@@ -97,9 +139,8 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
         if (onFormSubmit) {
           onFormSubmit();
         }
-        // Optionally, redirect after successful update/create
         router.push('/admin/recipes'); 
-        router.refresh(); // To ensure the table data is up-to-date
+        router.refresh(); 
       } else {
         toast({
           title: "Error",
@@ -156,7 +197,7 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormLabel>Description</FormLabel>
                   <FormControl><Textarea placeholder="A brief description of the recipe..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -167,7 +208,7 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Main Image URL (Optional)</FormLabel>
+                  <FormLabel>Main Image URL</FormLabel>
                   <FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -178,7 +219,7 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
               name="aiHint"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>AI Hint for Main Image (Optional)</FormLabel>
+                  <FormLabel>AI Hint for Main Image</FormLabel>
                   <FormControl><Input placeholder="e.g., pasta carbonara" {...field} /></FormControl>
                   <FormDescription>Keywords for image generation services.</FormDescription>
                   <FormMessage />
@@ -203,7 +244,7 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
 
         <Card>
           <CardHeader>
-            <CardTitle>Timings & Servings (Optional)</CardTitle>
+            <CardTitle>Timings & Servings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -229,7 +270,7 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
         
         <Card>
           <CardHeader>
-            <CardTitle>Nutritional Information (Optional)</CardTitle>
+            <CardTitle>Nutritional Information</CardTitle>
             <CardDescription>Per serving values.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -277,11 +318,11 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
                     />
                 </div>
                 <FormField control={form.control} name={`ingredients.${index}.imageUrl`} render={({ field: f }) => (
-                    <FormItem><FormLabel>Image URL (Optional)</FormLabel><FormControl><Input placeholder="https://example.com/ingredient.png" {...f} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/ingredient.png" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name={`ingredients.${index}.aiHint`} render={({ field: f }) => (
-                    <FormItem><FormLabel>AI Hint (Optional)</FormLabel><FormControl><Input placeholder="e.g., pasta" {...f} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>AI Hint</FormLabel><FormControl><Input placeholder="e.g., pasta" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <Button type="button" variant="destructive" size="sm" onClick={() => removeIngredient(index)} className="absolute top-3 right-3">
@@ -302,27 +343,45 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
           </CardHeader>
           <CardContent className="space-y-4">
             {stepFields.map((field, stepIndex) => (
-              <div key={field.id} className="p-4 border rounded-md space-y-3 relative">
-                <h4 className="font-medium text-md">Step {stepIndex + 1}</h4>
+              <div 
+                key={field.id} 
+                className={`p-4 border rounded-md space-y-3 relative group ${dragOverStepIndex === stepIndex ? 'border-primary border-2' : ''}`}
+                draggable
+                onDragStart={(e) => handleStepDragStart(e, stepIndex)}
+                onDragEnter={(e) => handleStepDragEnter(e, stepIndex)}
+                onDragOver={handleStepDragOver}
+                onDrop={(e) => handleStepDrop(e, stepIndex)}
+                onDragEnd={handleStepDragEnd}
+              >
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium text-md flex items-center">
+                     <GripVertical className="h-5 w-5 mr-2 text-muted-foreground cursor-grab group-hover:text-foreground" />
+                    Step {stepIndex + 1}
+                  </h4>
+                  <Button type="button" variant="destructive" size="sm" onClick={() => removeStep(stepIndex)} className="ml-auto">
+                    <Trash2 className="h-4 w-4 mr-1" /> Remove Step
+                  </Button>
+                </div>
+                
                 <FormField control={form.control} name={`steps.${stepIndex}.instruction`} render={({ field: f }) => (
                     <FormItem><FormLabel>Instruction</FormLabel><FormControl><Textarea placeholder="e.g., Boil water for pasta..." {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name={`steps.${stepIndex}.imageUrl`} render={({ field: f }) => (
-                    <FormItem><FormLabel>Image URL (Optional)</FormLabel><FormControl><Input placeholder="https://example.com/step_image.png" {...f} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Image URL</FormLabel><FormControl><Input placeholder="https://example.com/step_image.png" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name={`steps.${stepIndex}.aiHint`} render={({ field: f }) => (
-                    <FormItem><FormLabel>AI Hint (Optional)</FormLabel><FormControl><Input placeholder="e.g., boiling water" {...f} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>AI Hint</FormLabel><FormControl><Input placeholder="e.g., boiling water" {...f} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={form.control} name={`steps.${stepIndex}.timerInSeconds`} render={({ field: f }) => (
-                        <FormItem><FormLabel>Timer (seconds, Optional)</FormLabel><FormControl><Input type="number" placeholder="e.g., 600" {...f} value={f.value ?? ''} onChange={e => f.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Timer (seconds)</FormLabel><FormControl><Input type="number" placeholder="e.g., 600" {...f} value={f.value ?? ''} onChange={e => f.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                       )}
                     />
                     <FormField control={form.control} name={`steps.${stepIndex}.temperature`} render={({ field: f }) => (
-                        <FormItem><FormLabel>Temperature (Optional)</FormLabel><FormControl><Input placeholder="e.g., High heat, 180°C" {...f} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Temperature</FormLabel><FormControl><Input placeholder="e.g., High heat, 180°C" {...f} /></FormControl><FormMessage /></FormItem>
                       )}
                     />
                 </div>
@@ -362,10 +421,6 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
                   </div>
                    <FormMessage>{form.formState.errors.steps?.[stepIndex]?.selectedIngredientIndexes?.message}</FormMessage>
                 </div>
-
-                <Button type="button" variant="destructive" size="sm" onClick={() => removeStep(stepIndex)} className="absolute top-3 right-3">
-                  <Trash2 className="h-4 w-4 mr-1" /> Remove Step
-                </Button>
               </div>
             ))}
             <Button type="button" variant="outline" onClick={() => appendStep({ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '', selectedIngredientIndexes: [] })}>
@@ -384,3 +439,4 @@ export default function RecipeForm({ initialData, recipeId, onFormSubmit }: Reci
     </Form>
   );
 }
+
