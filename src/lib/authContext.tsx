@@ -38,12 +38,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       setCurrentUser(user);
       localStorage.setItem("swargfood-user", JSON.stringify(user));
-      router.push("/"); // Redirect to home after login
+      const loggedInUserIsAdmin = user.email?.toLowerCase().endsWith("@swargfood.com") ?? false;
+      if (loggedInUserIsAdmin) {
+        router.push("/admin"); // Redirect admin to admin panel
+      } else {
+        router.push("/"); // Redirect non-admin to home
+      }
     } else {
-      // Handle user not found, perhaps with a toast notification
-      // For now, just don't log in
+      // User not found
       setCurrentUser(null);
       localStorage.removeItem("swargfood-user");
+      // Toast notification is handled in LoginPage
     }
     setIsLoading(false);
   };
