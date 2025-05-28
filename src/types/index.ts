@@ -5,7 +5,8 @@ export interface Ingredient {
   quantity: number;
   unit: string;
   imageUrl?: string;
-  aiHint?: string; 
+  aiHint?: string;
+  item_order?: number; // From DB
 }
 
 export interface RecipeStep {
@@ -13,10 +14,10 @@ export interface RecipeStep {
   stepNumber: number;
   instruction: string;
   imageUrl?: string;
-  aiHint?: string; 
+  aiHint?: string;
   timerInSeconds?: number;
   temperature?: string;
-  ingredientIds?: string[];
+  ingredientIds?: string[]; // This might be complex to populate from DB initially
 }
 
 export interface NutritionalInfo {
@@ -41,26 +42,29 @@ export interface Recipe {
   nutritionalInfoPerServing?: NutritionalInfo;
   ingredients: Ingredient[];
   steps: RecipeStep[];
-  createdAt?: Date; // Optional for mock data
-  updatedAt?: Date; // Optional for mock data
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface User {
-  id: string;
+  id: string; // Will be VARCHAR(36) from DB
   email: string;
   name?: string;
   avatarUrl?: string;
-  aiHint?: string; 
+  aiHint?: string;
+  is_admin?: boolean; // From DB
+  // password_hash is intentionally omitted from client-side type
 }
 
 export interface RecipePreparationLog {
   id: string;
   userId: string;
-  userName: string;
+  userName: string; // This might be denormalized or fetched via JOIN
   recipeId: string;
-  recipeName: string;
+  recipeName: string; // This might be denormalized or fetched via JOIN
   startTime: Date;
   endTime?: Date;
   duration?: string; // Consider storing as seconds (number) for easier calculation
   languageUsed?: string;
+  // DB uses duration_seconds (INT) and created_at
 }

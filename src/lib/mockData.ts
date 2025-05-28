@@ -1,207 +1,310 @@
 
-import type { Recipe, User, Ingredient, RecipeStep } from "@/types";
-
-export const mockUsers: User[] = [
-  { id: "user1", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
-  { id: "admin1", email: "admin@swargfood.com", name: "Admin Alice", avatarUrl: "https://placehold.co/100x100.png", aiHint: "woman portrait" },
-  { id: "admin2", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
-];
-
-export let mockRecipes: Recipe[] = [
-  {
-    id: "pasta-carbonara",
-    name: "Classic Pasta Carbonara",
-    category: "Italian Classics",
-    description: "A creamy and delicious Italian pasta dish made with eggs, cheese, pancetta, and black pepper.",
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "pasta carbonara",
-    visibility: true,
-    prepTime: "15 mins",
-    cookTime: "15 mins",
-    totalTime: "30 mins",
-    servings: 2,
-    nutritionalInfoPerServing: {
-      calories: 600,
-      protein: 25,
-      fat: 35,
-      carbs: 50,
-    },
-    ingredients: [
-      { id: "i1", name: "Spaghetti", quantity: 200, unit: "g" },
-      { id: "i2", name: "Pancetta or Guanciale", quantity: 100, unit: "g", imageUrl: "https://placehold.co/50x50.png", aiHint: "pancetta" },
-      { id: "i3", name: "Large Eggs", quantity: 2, unit: "pcs" },
-      { id: "i4", name: "Pecorino Romano Cheese", quantity: 50, unit: "g", imageUrl: "https://placehold.co/50x50.png", aiHint: "cheese" },
-      { id: "i5", name: "Black Pepper", quantity: 1, unit: "tsp" },
-      { id: "i6", name: "Salt", quantity: 1, unit: "tsp" },
-    ],
-    steps: [
-      { id: "s1", stepNumber: 1, instruction: "Boil water for pasta. Add salt. Cook spaghetti according to package directions until al dente.", timerInSeconds: 600, temperature: "High heat" },
-      { id: "s2", stepNumber: 2, instruction: "While pasta cooks, cut pancetta into small cubes. Fry in a pan over medium heat until crispy. Remove pancetta, leave fat in pan.", temperature: "Medium heat" },
-      { id: "s3", stepNumber: 3, instruction: "In a bowl, whisk eggs and grated Pecorino Romano. Add a generous amount of freshly ground black pepper." },
-      { id: "s4", stepNumber: 4, instruction: "Drain pasta, reserving some pasta water. Add pasta to the pan with pancetta fat. Toss to coat." },
-      { id: "s5", stepNumber: 5, instruction: "Remove pan from heat. Quickly pour in egg and cheese mixture, stirring rapidly. If too thick, add a little reserved pasta water. Stir in cooked pancetta." , ingredientIds: ["i2"]},
-      { id: "s6", stepNumber: 6, instruction: "Serve immediately with more grated cheese and black pepper." },
-    ],
-    createdAt: new Date("2023-01-15T10:00:00Z"),
-    updatedAt: new Date("2023-01-16T12:00:00Z"),
-  },
-  {
-    id: "chicken-stir-fry",
-    name: "Quick Chicken Stir-Fry",
-    category: "Quick Meals",
-    description: "A fast and flavorful chicken stir-fry with fresh vegetables and a savory sauce.",
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "chicken stirfry",
-    visibility: true,
-    prepTime: "20 mins",
-    cookTime: "10 mins",
-    totalTime: "30 mins",
-    servings: 4,
-    nutritionalInfoPerServing: {
-      calories: 450,
-      protein: 30,
-      fat: 20,
-      carbs: 35,
-    },
-    ingredients: [
-      { id: "i7", name: "Chicken Breast", quantity: 500, unit: "g", imageUrl: "https://placehold.co/50x50.png", aiHint: "chicken breast" },
-      { id: "i8", name: "Broccoli Florets", quantity: 1, unit: "head" },
-      { id: "i9", name: "Bell Peppers (various colors)", quantity: 2, unit: "pcs" },
-      { id: "i10", name: "Soy Sauce", quantity: 4, unit: "tbsp" },
-      { id: "i11", name: "Sesame Oil", quantity: 1, unit: "tbsp" },
-      { id: "i12", name: "Ginger (minced)", quantity: 1, unit: "tbsp" },
-      { id: "i13", name: "Garlic (minced)", quantity: 2, unit: "cloves" },
-      { id: "i14", name: "Cornstarch", quantity: 1, unit: "tbsp" },
-      { id: "i15", name: "Rice (for serving)", quantity: 2, unit: "cups (cooked)" },
-    ],
-    steps: [
-      { id: "s7", stepNumber: 1, instruction: "Cut chicken into bite-sized pieces. Toss with 1 tbsp soy sauce and cornstarch." },
-      { id: "s8", stepNumber: 2, instruction: "Chop broccoli and bell peppers." },
-      { id: "s9", stepNumber: 3, instruction: "Heat a wok or large skillet over high heat. Add oil. Stir-fry chicken until browned and cooked through. Remove chicken.", temperature: "High heat" },
-      { id: "s10", stepNumber: 4, instruction: "Add garlic and ginger to the wok, stir-fry for 30 seconds. Add broccoli and bell peppers, stir-fry for 3-5 minutes until tender-crisp.", timerInSeconds: 240, temperature: "Medium-high heat" },
-      { id: "s11", stepNumber: 5, instruction: "Return chicken to the wok. In a small bowl, mix remaining soy sauce and sesame oil. Pour over stir-fry and toss to combine." },
-      { id: "s12", stepNumber: 6, instruction: "Serve hot over rice." },
-    ],
-    createdAt: new Date("2023-02-10T14:30:00Z"),
-    updatedAt: new Date("2023-02-10T14:30:00Z"),
-  },
-   {
-    id: "tomato-soup",
-    name: "Creamy Tomato Soup",
-    category: "Soups",
-    // Making description, timings, servings, and imageUrl optional here for testing
-    description: undefined, // "A rich and comforting creamy tomato soup, perfect with grilled cheese.",
-    imageUrl: undefined, // "https://placehold.co/600x400.png",
-    aiHint: "tomato soup", // Keep aiHint even if imageUrl is undefined
-    visibility: true,
-    prepTime: undefined, // "10 mins",
-    cookTime: undefined, // "25 mins",
-    totalTime: undefined, // "35 mins",
-    servings: undefined, // 4,
-    ingredients: [
-      { id: "ts1", name: "Canned Crushed Tomatoes", quantity: 800, unit: "g" },
-      { id: "ts2", name: "Vegetable Broth", quantity: 500, unit: "ml" },
-      { id: "ts3", name: "Onion", quantity: 1, unit: "medium" },
-      { id: "ts4", name: "Garlic", quantity: 2, unit: "cloves" },
-      { id: "ts5", name: "Heavy Cream", quantity: 100, unit: "ml" },
-      { id: "ts6", name: "Olive Oil", quantity: 2, unit: "tbsp" },
-      { id: "ts7", name: "Basil (fresh)", quantity: 0.25, unit: "cup, chopped" },
-      { id: "ts8", name: "Salt and Pepper", quantity: 1, unit: "to taste" },
-    ],
-    steps: [
-      { id: "tss1", stepNumber: 1, instruction: "Dice onion and mince garlic." },
-      { id: "tss2", stepNumber: 2, instruction: "Heat olive oil in a large pot over medium heat. Add onion and cook until softened, about 5 minutes.", temperature: "Medium heat", timerInSeconds: 300 },
-      { id: "tss3", stepNumber: 3, instruction: "Add garlic and cook for another minute until fragrant." },
-      { id: "tss4", stepNumber: 4, instruction: "Pour in crushed tomatoes and vegetable broth. Bring to a simmer, then reduce heat and cook for 15 minutes.", timerInSeconds: 900 },
-      { id: "tss5", stepNumber: 5, instruction: "Use an immersion blender to blend the soup until smooth. Alternatively, carefully transfer to a regular blender." },
-      { id: "tss6", stepNumber: 6, instruction: "Stir in heavy cream and fresh basil. Season with salt and pepper to taste." },
-      { id: "tss7", stepNumber: 7, instruction: "Serve hot, garnished with extra basil or a drizzle of cream." },
-    ],
-  }
-];
+import type { Recipe, User, Ingredient, RecipeStep, NutritionalInfo } from "@/types";
+import pool from './db'; // Import the database pool
+import { RowDataPacket, OkPacket } from 'mysql2';
 
 // Helper to generate unique IDs (simple version for mock data)
-const generateId = (prefix: string = 'item') => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+// For DB, primary keys are usually auto-increment or UUIDs generated by DB or application layer.
+// We'll use this for client-side generation before DB insertion if needed, or rely on DB.
+// The schema uses VARCHAR(36) for IDs, so UUIDs are appropriate.
+import { randomUUID } from 'crypto'; // Node.js built-in crypto module for UUIDs
 
-// Simulate DB functions
+const generateId = (prefix: string = ''): string => {
+  const uuid = randomUUID();
+  return prefix ? `${prefix}-${uuid}` : uuid;
+}
+
+
+// --- User Functions ---
+// mockUsers is no longer the source of truth for login.
+// Users will be fetched from the database.
+// This array can be removed or kept for seeding/testing if desired.
+export const mockUsers: User[] = [
+  { id: "a1b2c3d4-e5f6-7890-1234-567890abcdef", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: false },
+  { id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0", email: "admin@swargfood.com", name: "Admin Alice", avatarUrl: "https://placehold.co/100x100.png", aiHint: "woman portrait", is_admin: true },
+  { id: "c3d4e5f6-a7b8-9012-3456-7890abcdef01", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: true },
+];
+
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  const [rows] = await pool.query<RowDataPacket[]>('SELECT id, email, name, avatar_url, ai_hint, is_admin FROM users WHERE email = ?', [email]);
+  if (rows.length === 0) {
+    return null;
+  }
+  const dbUser = rows[0];
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    name: dbUser.name,
+    avatarUrl: dbUser.avatar_url,
+    aiHint: dbUser.ai_hint,
+    is_admin: !!dbUser.is_admin, // Ensure boolean
+  };
+};
+
+
+// --- Recipe Functions ---
+
+// Helper function to map database row to Recipe type
+const mapDbRowToRecipe = (row: RowDataPacket): Omit<Recipe, 'ingredients' | 'steps'> => ({
+  id: row.id,
+  name: row.name,
+  category: row.category,
+  description: row.description,
+  imageUrl: row.image_url,
+  aiHint: row.ai_hint,
+  visibility: !!row.visibility,
+  prepTime: row.prep_time,
+  cookTime: row.cook_time,
+  totalTime: row.total_time,
+  servings: row.servings,
+  nutritionalInfoPerServing: {
+    calories: row.nutritional_calories,
+    protein: row.nutritional_protein,
+    fat: row.nutritional_fat,
+    carbs: row.nutritional_carbs,
+  },
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
 export const getRecipes = async (): Promise<Recipe[]> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.filter(r => r.visibility !== false)), 200));
+  const [recipeRows] = await pool.query<RowDataPacket[]>(`
+    SELECT * FROM recipes WHERE visibility = TRUE ORDER BY created_at DESC
+  `);
+  
+  // For the main recipe list, we might not need full ingredients/steps to keep it performant.
+  // Or, fetch them if RecipeCard needs more details. For now, returning without.
+  return recipeRows.map(row => ({
+      ...mapDbRowToRecipe(row),
+      ingredients: [], // Populate if needed for cards, or on recipe detail page
+      steps: [],       // Populate if needed for cards, or on recipe detail page
+  }));
 };
 
 export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
-  return new Promise(resolve => setTimeout(() => resolve([...mockRecipes]), 200)); // Return a copy
+   const [recipeRows] = await pool.query<RowDataPacket[]>(`
+    SELECT * FROM recipes ORDER BY created_at DESC
+  `);
+  return recipeRows.map(row => ({
+      ...mapDbRowToRecipe(row),
+      ingredients: [], 
+      steps: [],       
+  }));
 }
 
 export const getRecipeById = async (id: string): Promise<Recipe | undefined> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockRecipes.find(r => r.id === id)), 200));
+  const [recipeRows] = await pool.query<RowDataPacket[]>('SELECT * FROM recipes WHERE id = ?', [id]);
+  if (recipeRows.length === 0) {
+    return undefined;
+  }
+  const recipeData = mapDbRowToRecipe(recipeRows[0]);
+
+  const [ingredientRows] = await pool.query<RowDataPacket[]>('SELECT * FROM ingredients WHERE recipe_id = ? ORDER BY item_order ASC', [id]);
+  const ingredients: Ingredient[] = ingredientRows.map(row => ({
+    id: row.id,
+    name: row.name,
+    quantity: row.quantity,
+    unit: row.unit,
+    imageUrl: row.image_url,
+    aiHint: row.ai_hint,
+    item_order: row.item_order,
+  }));
+
+  const [stepRows] = await pool.query<RowDataPacket[]>('SELECT * FROM recipe_steps WHERE recipe_id = ? ORDER BY step_number ASC', [id]);
+  const steps: RecipeStep[] = stepRows.map(row => ({
+    id: row.id,
+    stepNumber: row.step_number,
+    instruction: row.instruction,
+    imageUrl: row.image_url,
+    aiHint: row.ai_hint,
+    timerInSeconds: row.timer_in_seconds,
+    temperature: row.temperature,
+  }));
+
+  return {
+    ...recipeData,
+    ingredients,
+    steps,
+  };
 };
 
 export const addRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<Recipe> => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const newRecipe: Recipe = {
-        ...recipeData,
-        id: generateId('recipe'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        // Ensure ingredients and steps also have IDs if they don't already
-        // The server action should already be assigning these.
-        ingredients: recipeData.ingredients.map(ing => ({ ...ing, id: ing.id || generateId('ing') })),
-        steps: recipeData.steps.map(step => ({ ...step, id: step.id || generateId('step') })),
-      };
-      mockRecipes.push(newRecipe);
-      resolve(newRecipe);
-    }, 300);
-  });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const recipeId = generateId();
+    const recipeDbData = {
+      id: recipeId,
+      name: recipeData.name,
+      category: recipeData.category,
+      description: recipeData.description,
+      image_url: recipeData.imageUrl,
+      ai_hint: recipeData.aiHint,
+      visibility: recipeData.visibility,
+      prep_time: recipeData.prepTime,
+      cook_time: recipeData.cookTime,
+      total_time: recipeData.totalTime,
+      servings: recipeData.servings,
+      nutritional_calories: recipeData.nutritionalInfoPerServing?.calories,
+      nutritional_protein: recipeData.nutritionalInfoPerServing?.protein,
+      nutritional_fat: recipeData.nutritionalInfoPerServing?.fat,
+      nutritional_carbs: recipeData.nutritionalInfoPerServing?.carbs,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await connection.query('INSERT INTO recipes SET ?', recipeDbData);
+
+    for (const ing of recipeData.ingredients) {
+      const ingredientId = generateId();
+      await connection.query('INSERT INTO ingredients SET ?', {
+        id: ingredientId,
+        recipe_id: recipeId,
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        image_url: ing.imageUrl,
+        ai_hint: ing.aiHint,
+        item_order: ing.item_order || 0, // Ensure item_order is set
+      });
+    }
+
+    for (const step of recipeData.steps) {
+      const stepId = generateId();
+      await connection.query('INSERT INTO recipe_steps SET ?', {
+        id: stepId,
+        recipe_id: recipeId,
+        step_number: step.stepNumber,
+        instruction: step.instruction,
+        image_url: step.imageUrl,
+        ai_hint: step.aiHint,
+        timer_in_seconds: step.timerInSeconds,
+        temperature: step.temperature,
+      });
+    }
+
+    await connection.commit();
+
+    // Fetch the newly created recipe to return it in full
+    const newRecipe = await getRecipeById(recipeId);
+    if (!newRecipe) throw new Error('Failed to fetch newly created recipe');
+    return newRecipe;
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error adding recipe to DB:', error);
+    throw error; // Re-throw to be caught by the action
+  } finally {
+    connection.release();
+  }
 };
 
 // Placeholder for updateRecipe - to be implemented later
 export const updateRecipe = async (recipeId: string, updatedData: Partial<Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Recipe | null> => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const recipeIndex = mockRecipes.findIndex(r => r.id === recipeId);
-      if (recipeIndex > -1) {
-        const ingredientsWithIds = updatedData.ingredients?.map(ing => ({...ing, id: ing.id || generateId('ing')}));
-        const stepsWithIdsAndNumbers = updatedData.steps?.map((step, index) => ({...step, id: step.id || generateId('step'), stepNumber: index + 1}));
+  console.warn("updateRecipe is not fully implemented for database yet.");
+  // This would involve updating the 'recipes' table, and potentially deleting/re-inserting ingredients and steps,
+  // or updating them individually if they have stable IDs and you implement that logic.
+  // For a full implementation, careful handling of transactions is needed.
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-        mockRecipes[recipeIndex] = {
-          ...mockRecipes[recipeIndex],
-          ...updatedData,
-          ingredients: ingredientsWithIds || mockRecipes[recipeIndex].ingredients,
-          steps: stepsWithIdsAndNumbers || mockRecipes[recipeIndex].steps,
-          updatedAt: new Date(),
-        };
-        resolve(mockRecipes[recipeIndex]);
-      } else {
-        resolve(null);
-      }
-    }, 300);
-  });
+    const recipePayload: any = { ...updatedData };
+    delete recipePayload.ingredients;
+    delete recipePayload.steps;
+    delete recipePayload.nutritionalInfoPerServing; // Handle separately
+
+    if (updatedData.nutritionalInfoPerServing) {
+      recipePayload.nutritional_calories = updatedData.nutritionalInfoPerServing.calories;
+      recipePayload.nutritional_protein = updatedData.nutritionalInfoPerServing.protein;
+      recipePayload.nutritional_fat = updatedData.nutritionalInfoPerServing.fat;
+      recipePayload.nutritional_carbs = updatedData.nutritionalInfoPerServing.carbs;
+    }
+    
+    recipePayload.image_url = updatedData.imageUrl;
+    recipePayload.prep_time = updatedData.prepTime;
+    recipePayload.cook_time = updatedData.cookTime;
+    recipePayload.total_time = updatedData.totalTime;
+
+
+    if (Object.keys(recipePayload).length > 0) {
+         await connection.query('UPDATE recipes SET ?, updated_at = NOW() WHERE id = ?', [recipePayload, recipeId]);
+    }
+
+
+    // Ingredients and steps update logic:
+    // Option 1: Delete all existing and re-insert (simpler for full updates)
+    // Option 2: Diff and update/insert/delete (more complex)
+    if (updatedData.ingredients) {
+        await connection.query('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
+        for (const [index, ing] of updatedData.ingredients.entries()) {
+            const ingredientId = ing.id || generateId(); // Reuse ID if provided, else generate
+             await connection.query('INSERT INTO ingredients SET ?', {
+                id: ingredientId,
+                recipe_id: recipeId,
+                name: ing.name,
+                quantity: ing.quantity,
+                unit: ing.unit,
+                image_url: ing.imageUrl,
+                ai_hint: ing.aiHint,
+                item_order: index,
+            });
+        }
+    }
+
+    if (updatedData.steps) {
+        await connection.query('DELETE FROM recipe_steps WHERE recipe_id = ?', [recipeId]);
+        for (const step of updatedData.steps) {
+            const stepId = step.id || generateId(); // Reuse ID if provided
+            await connection.query('INSERT INTO recipe_steps SET ?', {
+                id: stepId,
+                recipe_id: recipeId,
+                step_number: step.stepNumber,
+                instruction: step.instruction,
+                image_url: step.imageUrl,
+                ai_hint: step.aiHint,
+                timer_in_seconds: step.timerInSeconds,
+                temperature: step.temperature,
+            });
+        }
+    }
+    
+    await connection.commit();
+    return getRecipeById(recipeId).then(r => r || null);
+
+  } catch (error) {
+      await connection.rollback();
+      console.error(`Error updating recipe ${recipeId}:`, error);
+      return null;
+  } finally {
+      connection.release();
+  }
 };
 
-// Placeholder for deleteRecipe - to be implemented later
+
 export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
-   return new Promise(resolve => {
-    setTimeout(() => {
-      const initialLength = mockRecipes.length;
-      mockRecipes = mockRecipes.filter(r => r.id !== recipeId);
-      resolve(mockRecipes.length < initialLength);
-    }, 300);
-  });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // Cascading delete should handle ingredients and steps if FKs are set up correctly
+    const [result] = await connection.query<OkPacket>('DELETE FROM recipes WHERE id = ?', [recipeId]);
+    await connection.commit();
+    return result.affectedRows > 0;
+  } catch (error) {
+    await connection.rollback();
+    console.error(`Error deleting recipe ${recipeId}:`, error);
+    return false;
+  } finally {
+    connection.release();
+  }
 };
 
-// Placeholder for toggleRecipeVisibility - to be implemented later
 export const toggleRecipeVisibility = async (recipeId: string, visibility: boolean): Promise<Recipe | null> => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const recipeIndex = mockRecipes.findIndex(r => r.id === recipeId);
-      if (recipeIndex > -1) {
-        mockRecipes[recipeIndex].visibility = visibility;
-        mockRecipes[recipeIndex].updatedAt = new Date();
-        resolve(mockRecipes[recipeIndex]);
-      } else {
-        resolve(null);
-      }
-    }, 300);
-  });
+  const [result] = await pool.query<OkPacket>('UPDATE recipes SET visibility = ?, updated_at = NOW() WHERE id = ?', [visibility, recipeId]);
+  if (result.affectedRows > 0) {
+    const updatedRecipe = await getRecipeById(recipeId);
+    return updatedRecipe || null;
+  }
+  return null;
 };

@@ -1,14 +1,15 @@
+
 "use client";
 
 import type { User } from "@/types";
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { mockUsers } from "@/lib/mockData"; // Using mock users for login
+import { getUserByEmail } from "@/lib/mockData"; // Using getUserByEmail which now fetches from DB
 import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string) => Promise<void>; // Password removed for now
   logout: () => void;
   isAdmin: boolean;
   promptLogin: () => void;
@@ -22,48 +23,72 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // Simulate loading user from localStorage or session
     const storedUser = localStorage.getItem("swargfood-user");
     if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+      try {
+        const parsedUser: User = JSON.parse(storedUser);
+        // Re-validate or refresh user data from DB if necessary, for now trust localStorage
+        setCurrentUser(parsedUser);
+      } catch (e) {
+        console.error("Failed to parse stored user:", e);
+        localStorage.removeItem("swargfood-user");
+      }
     }
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string) => {
+  const login = async (email: string) => { // Password parameter removed
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem("swargfood-user", JSON.stringify(user));
-      const loggedInUserIsAdmin = user.email?.toLowerCase().endsWith("@swargfood.com") ?? false;
-      if (loggedInUserIsAdmin) {
-        router.push("/admin"); // Redirect admin to admin panel
+    try {
+      // Simulate API call duration if needed, or rely on DB query time
+      // await new Promise(resolve => setTimeout(resolve, 300)); 
+      
+      const user = await getUserByEmail(email);
+
+      if (user) {
+        // IMPORTANT: Password verification is SKIPPED here. 
+        // In a real app, you would hash the provided password and compare it with user.password_hash.
+        console.warn("SECURITY RISK: Password verification is currently bypassed in authContext.tsx.");
+
+        setCurrentUser(user);
+        localStorage.setItem("swargfood-user", JSON.stringify(user));
+        
+        if (user.is_admin) {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
       } else {
-        router.push("/"); // Redirect non-admin to home
+        // User not found
+        setCurrentUser(null);
+        localStorage.removeItem("swargfood-user");
+        // Toast notification for login failure is handled in LoginPage
+        throw new Error("User not found or credentials incorrect.");
       }
-    } else {
-      // User not found
+    } catch (error) {
+      console.error("Login failed:", error);
       setCurrentUser(null);
       localStorage.removeItem("swargfood-user");
-      // Toast notification is handled in LoginPage
+      // Re-throw to be caught by the form handler for toast
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem("swargfood-user");
-    router.push("/"); // Redirect to home after logout
+    router.push("/");
   };
 
   const promptLogin = () => {
     router.push('/login');
   };
 
-  const isAdmin = currentUser?.email?.toLowerCase().endsWith("@swargfood.com") ?? false;
+  // Use is_admin from the currentUser object if available, otherwise fallback to email check.
+  const isAdmin = currentUser?.is_admin ?? (currentUser?.email?.toLowerCase().endsWith("@swargfood.com") ?? false);
+
 
   return (
     <AuthContext.Provider value={{ currentUser, isLoading, login, logout, isAdmin, promptLogin }}>
