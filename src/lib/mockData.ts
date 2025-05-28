@@ -1,8 +1,10 @@
+
 import type { Recipe, User } from "@/types";
 
 export const mockUsers: User[] = [
   { id: "user1", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
   { id: "admin1", email: "admin@swargfood.com", name: "Admin Alice", avatarUrl: "https://placehold.co/100x100.png", aiHint: "woman portrait" },
+  { id: "admin2", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait" },
 ];
 
 export const mockRecipes: Recipe[] = [
@@ -129,3 +131,4 @@ export const getAllRecipesForAdmin = async (): Promise<Recipe[]> => {
 export const getRecipeById = async (id: string): Promise<Recipe | undefined> => {
   return new Promise(resolve => setTimeout(() => resolve(mockRecipes.find(r => r.id === id)), 300));
 };
+
