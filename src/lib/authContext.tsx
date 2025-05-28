@@ -3,13 +3,14 @@
 
 import type { User } from "@/types";
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { getUserByEmail } from "@/lib/mockData"; // Using getUserByEmail which now fetches from DB
+// Removed direct import of getUserByEmail
 import { useRouter } from "next/navigation";
+import { loginUserAction } from "@/lib/actions/authActions"; // Import the server action
 
 interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
-  login: (email: string) => Promise<void>; // Password removed for now
+  login: (email: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   promptLogin: () => void;
@@ -27,7 +28,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (storedUser) {
       try {
         const parsedUser: User = JSON.parse(storedUser);
-        // Re-validate or refresh user data from DB if necessary, for now trust localStorage
         setCurrentUser(parsedUser);
       } catch (e) {
         console.error("Failed to parse stored user:", e);
@@ -37,16 +37,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string) => { // Password parameter removed
+  const login = async (email: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call duration if needed, or rely on DB query time
-      // await new Promise(resolve => setTimeout(resolve, 300)); 
-      
-      const user = await getUserByEmail(email);
+      // Call the server action instead of directly calling getUserByEmail
+      const result = await loginUserAction(email);
 
-      if (user) {
-        // IMPORTANT: Password verification is SKIPPED here. 
+      if (result.success && result.user) {
+        const user = result.user;
+        // IMPORTANT: Password verification is SKIPPED here.
         // In a real app, you would hash the provided password and compare it with user.password_hash.
         console.warn("SECURITY RISK: Password verification is currently bypassed in authContext.tsx.");
 
@@ -59,18 +58,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           router.push("/");
         }
       } else {
-        // User not found
         setCurrentUser(null);
         localStorage.removeItem("swargfood-user");
-        // Toast notification for login failure is handled in LoginPage
-        throw new Error("User not found or credentials incorrect.");
+        throw new Error(result.error || "User not found or credentials incorrect.");
       }
     } catch (error) {
       console.error("Login failed:", error);
       setCurrentUser(null);
       localStorage.removeItem("swargfood-user");
-      // Re-throw to be caught by the form handler for toast
-      throw error;
+      throw error; // Re-throw to be caught by the form handler for toast
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
-  // Use is_admin from the currentUser object if available, otherwise fallback to email check.
   const isAdmin = currentUser?.is_admin ?? (currentUser?.email?.toLowerCase().endsWith("@swargfood.com") ?? false);
-
 
   return (
     <AuthContext.Provider value={{ currentUser, isLoading, login, logout, isAdmin, promptLogin }}>

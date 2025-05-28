@@ -1,4 +1,6 @@
 
+'use server'; // Mark this module as server-only
+
 import type { Recipe, User, Ingredient, RecipeStep, NutritionalInfo } from "@/types";
 import pool from './db'; // Import the database pool
 import { RowDataPacket, OkPacket } from 'mysql2';
@@ -19,7 +21,7 @@ const generateId = (prefix: string = ''): string => {
 // mockUsers is no longer the source of truth for login.
 // Users will be fetched from the database.
 // This array can be removed or kept for seeding/testing if desired.
-export const mockUsers: User[] = [
+const mockUsers: User[] = [
   { id: "a1b2c3d4-e5f6-7890-1234-567890abcdef", email: "user@example.com", name: "John Doe", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: false },
   { id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0", email: "admin@swargfood.com", name: "Admin Alice", avatarUrl: "https://placehold.co/100x100.png", aiHint: "woman portrait", is_admin: true },
   { id: "c3d4e5f6-a7b8-9012-3456-7890abcdef01", email: "pradeep@swargfood.com", name: "Pradeep Admin", avatarUrl: "https://placehold.co/100x100.png", aiHint: "man portrait", is_admin: true },
@@ -308,3 +310,4 @@ export const toggleRecipeVisibility = async (recipeId: string, visibility: boole
   }
   return null;
 };
+
