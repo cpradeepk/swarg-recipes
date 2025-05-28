@@ -1,3 +1,4 @@
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -29,14 +30,14 @@ export interface Recipe {
   id: string;
   name: string;
   category: string;
-  description: string;
-  imageUrl: string;
+  description?: string;
+  imageUrl?: string;
   aiHint?: string;
   visibility?: boolean;
-  prepTime: string;
-  cookTime: string;
-  totalTime: string;
-  servings: number;
+  prepTime?: string;
+  cookTime?: string;
+  totalTime?: string;
+  servings?: number;
   nutritionalInfoPerServing?: NutritionalInfo;
   ingredients: Ingredient[];
   steps: RecipeStep[];
@@ -60,6 +61,6 @@ export interface RecipePreparationLog {
   recipeName: string;
   startTime: Date;
   endTime?: Date;
-  duration?: string;
+  duration?: string; // Consider storing as seconds (number) for easier calculation
   languageUsed?: string;
 }

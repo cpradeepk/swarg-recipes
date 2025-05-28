@@ -19,14 +19,14 @@ export async function createRecipeAction(
     const newRecipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'> = {
       name: validatedData.name,
       category: validatedData.category,
-      description: validatedData.description,
-      imageUrl: validatedData.imageUrl,
-      aiHint: validatedData.aiHint,
+      description: validatedData.description || undefined,
+      imageUrl: validatedData.imageUrl || undefined,
+      aiHint: validatedData.aiHint || undefined,
       visibility: validatedData.visibility,
-      prepTime: validatedData.prepTime,
-      cookTime: validatedData.cookTime,
-      totalTime: validatedData.totalTime,
-      servings: validatedData.servings,
+      prepTime: validatedData.prepTime || undefined,
+      cookTime: validatedData.cookTime || undefined,
+      totalTime: validatedData.totalTime || undefined,
+      servings: validatedData.servings, // Will be number or undefined
       nutritionalInfoPerServing: validatedData.nutritionalInfoPerServing ? {
         calories: validatedData.nutritionalInfoPerServing.calories,
         protein: validatedData.nutritionalInfoPerServing.protein,

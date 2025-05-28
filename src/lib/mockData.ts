@@ -89,14 +89,15 @@ export let mockRecipes: Recipe[] = [
     id: "tomato-soup",
     name: "Creamy Tomato Soup",
     category: "Soups",
-    description: "A rich and comforting creamy tomato soup, perfect with grilled cheese.",
-    imageUrl: "https://placehold.co/600x400.png",
-    aiHint: "tomato soup",
+    // Making description, timings, servings, and imageUrl optional here for testing
+    description: undefined, // "A rich and comforting creamy tomato soup, perfect with grilled cheese.",
+    imageUrl: undefined, // "https://placehold.co/600x400.png",
+    aiHint: "tomato soup", // Keep aiHint even if imageUrl is undefined
     visibility: true,
-    prepTime: "10 mins",
-    cookTime: "25 mins",
-    totalTime: "35 mins",
-    servings: 4,
+    prepTime: undefined, // "10 mins",
+    cookTime: undefined, // "25 mins",
+    totalTime: undefined, // "35 mins",
+    servings: undefined, // 4,
     ingredients: [
       { id: "ts1", name: "Canned Crushed Tomatoes", quantity: 800, unit: "g" },
       { id: "ts2", name: "Vegetable Broth", quantity: 500, unit: "ml" },

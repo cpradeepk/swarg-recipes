@@ -39,7 +39,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
       prepTime: '',
       cookTime: '',
       totalTime: '',
-      servings: 1,
+      servings: undefined, // Changed from 1 to undefined as it's optional
       nutritionalInfoPerServing: { calories: undefined, protein: undefined, fat: undefined, carbs: undefined },
       ingredients: [{ name: '', quantity: 0, unit: '', imageUrl: '', aiHint: '' }],
       steps: [{ instruction: '', imageUrl: '', aiHint: '', timerInSeconds: undefined, temperature: '' }],
@@ -121,7 +121,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Description (Optional)</FormLabel>
                   <FormControl><Textarea placeholder="A brief description of the recipe..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -132,7 +132,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Main Image URL</FormLabel>
+                  <FormLabel>Main Image URL (Optional)</FormLabel>
                   <FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -168,7 +168,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
 
         <Card>
           <CardHeader>
-            <CardTitle>Timings & Servings</CardTitle>
+            <CardTitle>Timings & Servings (Optional)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -186,7 +186,7 @@ export default function RecipeForm({ initialData, onFormSubmit }: RecipeFormProp
               />
             </div>
             <FormField control={form.control} name="servings" render={({ field }) => (
-                <FormItem><FormLabel>Servings</FormLabel><FormControl><Input type="number" placeholder="e.g., 4" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Servings</FormLabel><FormControl><Input type="number" placeholder="e.g., 4" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
               )}
             />
           </CardContent>
