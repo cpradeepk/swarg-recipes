@@ -2,6 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   basePath: '/recipes',
+  trailingSlash: true,
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
